@@ -111,7 +111,7 @@ int write_buf_to_client(Client *cli, const char *msg, const int msg_len) {
   }
 
   // check if message is too long
-  if (msg_len > TEXT_LEN) { // TODO: negotiate a 'long message' for text with more than 255 bytes
+  if (msg_len > TEXT_LEN) {
     debug_print("write_buf_to_client: message is too long");
     return 1;
   }
@@ -203,14 +203,14 @@ int write_packet_to_client(Client *cli, Packet *pack) {
   return 0;
 }
 
-int send_str_to_client(Client *cli, char *str) {
+int send_str_to_client(Client *cli, const char *str) {
   // precondition for invalid arguments
   if (cli == NULL || str == NULL) {
     debug_print("send_str_to_client: invalid arguments");
     return -1;
   }
 
-  return write_buf_to_client(cli, str, strlen(str));
+  return write_buf_to_client(cli, str, strlen(str) + 1);
 }
 
 int send_fstr_to_client(Client *cli, const char *format, ...) {
@@ -251,6 +251,10 @@ int read_header(Client *cli) {
     if (head_read < 0) {
       debug_print("read_header: failed to read header");
       return 1;
+    } else if (head_read == 0) {
+      debug_print("read_header: socket is closed");
+      parse_escape(cli);
+      return -1;
     } else {
       debug_print("read_header: received incomplete header");
       return 1;
@@ -269,7 +273,7 @@ int read_header(Client *cli) {
 
     case START_HEADER:
       debug_print("read_header: received extended header");
-      status = parse_ext_header(cli, head);
+      //status = parse_header(cli, head);
       break;
 
     case START_TEXT:
@@ -327,6 +331,24 @@ int parse_text(Client *cli, const int control1, const int control2) {
   int count = control1;
   int width = control2;
 
+  if (control1 == 0 && control2 == 0) {
+    int long_len;
+    char *head = read_long_text(cli, &long_len);
+    if (head == NULL) {
+      debug_print("parse_text: failed long text parsing");
+      if (long_len < 0) {
+        return -1;
+      } else {
+        return 1;
+      }
+    }
+
+    printf("Received long message as follows:\n");
+    printf("%.*s\n", long_len, head);
+    return 0;
+  }
+
+  int total = 0;
   int bytes_read;
   char buffer[TEXT_LEN];
   for (int i = 0; i < count; i++) {
@@ -344,12 +366,46 @@ int parse_text(Client *cli, const int control1, const int control2) {
         return 1;
       }
     }
+    total += bytes_read;
 
     // TODO: consume the message
-    printf("Received \"%.*s\"", width, buffer);
+    printf("Received \"%.*s\"\n", width, buffer);
   }
 
+  debug_print("parse_text: read text section %d bytes wide", total);
   return 0;
+}
+
+char *read_long_text(Client *cli, int *len_ptr) {
+  if (cli == NULL || len_ptr == NULL) {
+    debug_print("read_long_text: invalid arguments");
+    *len_ptr = -1;
+    return NULL;
+  }
+
+  char buffer[TEXT_LEN];
+  int readnum = read(cli->socket_fd, buffer, TEXT_LEN);
+  if (readnum < 0) {
+    debug_print("read_long_text: failed to read long text section");
+    *len_ptr = 0;
+    return NULL;
+  }
+
+  char *ptr;
+  if (buf_contains_stop(buffer, readnum)) {
+    ptr = (char *) malloc(readnum);
+    memmove(ptr, buffer, readnum);
+    *len_ptr = readnum;
+  } else {
+    int sub_len;
+    ptr = read_long_text(cli, &sub_len);
+    ptr = (char *) realloc(ptr, readnum + sub_len);
+    memmove(ptr + sub_len, buffer, readnum);
+    *len_ptr = readnum + sub_len;
+  }
+
+  debug_print("read_long_text: failed to read long text section");
+  return ptr;
 }
 
 int parse_enquiry(Client *cli, const int control1) {
@@ -382,6 +438,7 @@ int parse_acknowledge(Client *cli, const int control1) {
   switch(control1) {
     case ENQUIRY:
       // TODO: response to ping
+      printf("pong\n");
       break;
     case WAKEUP:
       // TODO: the sender says it has woken up
@@ -391,6 +448,9 @@ int parse_acknowledge(Client *cli, const int control1) {
       break;
     case ESCAPE:
       // TOOD: the sender knows you're stopping
+      // marking this client as closed
+      cli->inc_flag = -1;
+      cli->out_flag = -1;
       break;
   }
 
@@ -453,8 +513,75 @@ int parse_escape(Client *cli) {
 }
 
 /*
+ * Data Layer functions
+ */
+
+ int remove_newline(char *buf, int len) {
+   // Precondition for invalid arguments
+   if (buf == NULL || len < 2) {
+     debug_print("remove_newline: invalid arguments");
+     return -1;
+   }
+
+   int index;
+   for (index = 1; index < len; index++) {
+     // network newline
+     if (buf[index - 1] == '\r' && buf[index] == '\n') {
+       debug_print("remove_newline: network newline at %d", index);
+       buf[index - 1] = '\0';
+       buf[index] = '\0';
+       return index;
+     }
+
+     // unix newline
+     if (buf[index - 1] != '\r' && buf[index] == '\n') {
+       debug_print("remove_newline: unix newline at %d", index);
+       buf[index] = '\0';
+       return index;
+     }
+   }
+
+   // nothing found
+   debug_print("remove_newline: no newline found");
+   return -1;
+ }
+
+/*
  * Utility Functions
  */
+
+int is_client_closed(Client *cli) {
+  if (cli == NULL) {
+    debug_print("is_client_closed: invalid arguments");
+    return -1;
+  }
+
+  return (cli->inc_flag == -1 && cli->out_flag == -1);
+}
+
+int is_client_open(Client *cli) {
+  if (cli == NULL) {
+    debug_print("is_client_open: invalid arguments");
+    return -1;
+  }
+
+  return (cli->inc_flag == 0 && cli->out_flag == 0);
+}
+
+int buf_contains_stop(const char *buf, const int buf_len) {
+  if (buf == NULL || buf_len < 0) {
+    debug_print("buf_contains_stop: invalid arguments");
+    return -1;
+  }
+
+  if (buf_len == 0) return 0;
+
+  for (int i = 0; i < buf_len; i++) {
+    if (buf[i] == 3) return 1;
+  }
+
+  return 0;
+}
 
 int assemble_packet(Packet *pack, const char header[PACKET_LEN], const char *buf, const int buf_len) {
   // precondition for invalid arguments

@@ -96,12 +96,14 @@ int main(void) {
     // check all clients if they can read
     for (int index = 0; index < MAX_CONNECTIONS; index++) {
       Client *client = global_clients[index];
+
       if (client != NULL && FD_ISSET(client->socket_fd, &listen_fds)) {
         read_header(client);
 
         // if a client requested a cancel
         if (client->inc_flag < 0 && client->out_flag < 0) {
           FD_CLR(client->socket_fd, &all_fds);
+          printf(client_closed, client->socket_fd);
           remove_client(index, global_clients);
         }
       }

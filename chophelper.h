@@ -140,27 +140,49 @@ int send_fstr_to_client(Client *cli, const char *format, ...);
 
 int read_header(Client *cli);
 
-int parse_ext_header(Client *cli, char header[PACKET_LEN]);
+int parse_header(Client *cli, char header[PACKET_LEN]);
 
 int parse_text(Client *cli, const int control1, const int control2);
+
+char *read_long_text(Client *cli, int *len_ptr);
 
 int parse_enquiry(Client *cli, const int control1);
 
 int parse_acknowledge(Client *cli, const int control1);
 
+int parse_wakeup(Client *cli);
+
 int parse_neg_acknowledge(Client *cli, const int control1);
+
+int parse_idle(Client *cli);
 
 int parse_escape(Client *cli);
 
+/*
+ * Data Layer functions
+ */
+
+ /*
+  * Replaces the first '\n' or '\r\n' found in str with a null terminator.
+  * Returns the index of the new first null terminator if found, or -1 if
+  * not found.
+  */
+ int remove_newline(char *str, int len);
 
 /*
  * Utility Functions
  */
 
+int is_client_closed(Client *cli);
+
+int is_client_open(Client *cli);
+
+int buf_contains_stop(const char *buf, const int buf_len);
+
 /*
  * Copies given data into a given packet struct
  */
-int assemble_packet(Packet *pack, char header[PACKET_LEN], const char *buf, const int buf_len);
+int assemble_packet(Packet *pack, const char header[PACKET_LEN], const char *buf, const int buf_len);
 
 /*
  * Prints requested format string into stderr, prefixing properly

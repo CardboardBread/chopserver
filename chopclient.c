@@ -52,12 +52,8 @@ int main(void) {
     listen_fds = all_fds;
     int nready = select(max_fd + 1, &listen_fds, NULL, NULL, NULL);
     if (nready < 0) {
-      if (errno == EINTR) {
-        continue;
-      } else {
-        debug_print("select: non-interrupt error");
-        exit(1);
-      }
+      debug_print("select: error");
+      exit(1);
     }
 
     // reading from server
@@ -66,22 +62,44 @@ int main(void) {
 
       // if a client requested a cancel
       if (server_connection.inc_flag < 0 && server_connection.out_flag < 0) {
-        FD_CLR(server_connection.socket_fd, &all_fds);
-        run = 0;
+        exit(1);
+        //FD_CLR(server_connection.socket_fd, &all_fds);
+        //run = 0;
       }
     }
 
     // reading from stdin, parsing and sending to server
     int num_read;
-    int num_write;
     char buffer[265];
     if (FD_ISSET(STDIN_FILENO, &listen_fds)) {
       num_read = read(STDIN_FILENO, buffer, 265);
       if (num_read == 0) break;
       buffer[num_read] = '\0';
 
-      num_write = write(server_connection.socket_fd, buffer, num_read);
-      
+      // initializing packet struct
+      Packet pack;
+      reset_packet_struct(&pack);
+
+      remove_newline(buffer, num_read);
+
+      // setting values of header
+      char header[PACKET_LEN] = {0};
+      if (strcmp(buffer, "exit") == 0) {
+        header[PACKET_STATUS] = ESCAPE;
+      } else if (strcmp(buffer, "ping") == 0) {
+        header[PACKET_STATUS] = ENQUIRY;
+      } else if (strcmp(buffer, "sleep") == 0) {
+        header[PACKET_STATUS] = IDLE;
+      } else if (strcmp(buffer, "wake") == 0) {
+        header[PACKET_STATUS] = WAKEUP;
+      } else {
+        send_str_to_client(&server_connection, buffer);
+        continue;
+      }
+
+      // copy into struct, send to client
+      assemble_packet(&pack, header, NULL, 0);
+      write_packet_to_client(&server_connection, &pack);
     }
   }
 
