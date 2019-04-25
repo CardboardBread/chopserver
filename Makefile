@@ -3,10 +3,10 @@ CFLAGS = -DPORT=$(PORT) -g -Wall -Werror -std=gnu99
 
 all: chopserver chopclient
 
-chat_server: chopserver.o socket.o chophelper.o
+chopserver: chopserver.o socket.o chophelper.o
 	gcc ${CFLAGS} -o $@ $^
 
-chat_client: chopclient.o socket.o chophelper.o
+chopclient: chopclient.o socket.o chophelper.o
 	gcc ${CFLAGS} -o $@ $^
 
 %.o: %.c
