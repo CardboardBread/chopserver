@@ -35,10 +35,11 @@ int setup_new_client(const int listen_fd, Client *clients[]) {
 
     // placing new client in empty space
     if (clients[i] == NULL) {
-      clients[i] = (Client *) malloc(sizeof(Client));
-      clients[i]->buffer = (Buffer *) malloc(sizeof(Buffer));
-      reset_client_struct(clients[i]);
-      clients[i]->socket_fd = fd;
+      if (setup_client_struct(&(clients[i]), fd) < 0) {
+        debug_print("setup_new_client: failed to setup client");
+        return -1;
+      }
+
       debug_print("setup_new_client: placed client at index %d", i);
       return fd;
     }
@@ -50,47 +51,61 @@ int setup_new_client(const int listen_fd, Client *clients[]) {
   return -1;
 }
 
-int establish_server_connection(const int port, const char *address, Client *cli) {
-  if (port < 0 || address == NULL || cli == NULL) {
+int establish_server_connection(const char *address, const int port, Client **client) {
+  // precondition for invalid arguments
+  if (client == NULL || port < 0 || address == NULL) {
     debug_print("establish_server_connection: invalid arguments");
     return -1;
   }
 
+  // connect to server
   int fd = connect_to_server(port, address);
   if (fd < MIN_FD) {
-    debug_print("establish_server_connection: failed to connect to server");
+    debug_print("establish_server_connection: failed to connect to server at %s", address);
     return -1;
   }
-  debug_print("establish_server_connection: connected to server");
+  debug_print("establish_server_connection: connected to server at %s", address);
 
-  cli->buffer = (Buffer *) malloc(sizeof(Buffer));
-  reset_client_struct(cli);
-  cli->socket_fd = fd;
+  // store fd in client struct
+  if (setup_client_struct(client, fd) < 0) {
+    debug_print("establish_server_connection: failed to setup client");
+    return -1;
+  }
+  debug_print("establish_server_connection: client successfully setup");
 
   return fd;
 }
 
-int remove_client(const int client_index, Client *clients[]) {
+int remove_client_index(const int client_index, Client *clients[]) {
   // precondition for invalid arguments
   if (client_index < MIN_FD) {
-    debug_print("remove_client: invalid arguments");
+    debug_print("remove_client_index: invalid arguments");
     return -1;
   }
 
   // no client at index
   if (clients[client_index] == NULL) {
-    debug_print("remove_client: target index %d has no client", client_index);
+    debug_print("remove_client_index: target index %d has no client", client_index);
     return 1;
   }
 
-  // closing fd and freeing heap memory
-  int sav = clients[client_index]->socket_fd;
-  close(clients[client_index]->socket_fd);
-  free(clients[client_index]);
-  clients[client_index] = NULL;
+  return destroy_client_struct(&(clients[client_index]));
+}
 
-  debug_print("remove_client: client %d at index %d removed", sav, client_index);
-  return 0;
+int remove_client_address(const int client_index, Client **client) {
+  // precondition for invalid arguments
+  if (client_index < MIN_FD || client == NULL) {
+    debug_print("remove_client_address: invalid arguments");
+    return -1;
+  }
+
+  // no client at pointer
+  if (*client == NULL) {
+    debug_print("remove_client_address: target address has no client");
+    return 1;
+  }
+
+  return destroy_client_struct(client);
 }
 
 /*
@@ -321,6 +336,8 @@ int read_header(Client *cli) {
   return status;
 }
 
+int parse_header(Client *cli, char header[PACKET_LEN]);
+
 int parse_text(Client *cli, const int control1, const int control2) {
   // precondition for invalid arguments
   if (cli == NULL || control1 < 0 || control2 < 0) {
@@ -457,6 +474,8 @@ int parse_acknowledge(Client *cli, const int control1) {
   return 0;
 }
 
+int parse_wakeup(Client *cli);
+
 int parse_neg_acknowledge(Client *cli, const int control1) {
   // precondition for invalid argument
   if (cli == NULL || control1 < 0) {
@@ -484,6 +503,8 @@ int parse_neg_acknowledge(Client *cli, const int control1) {
 
   return 0;
 }
+
+int parse_idle(Client *cli);
 
 int parse_escape(Client *cli) {
   // precondition for invalid argument
@@ -553,7 +574,7 @@ int parse_escape(Client *cli) {
 int is_client_closed(Client *cli) {
   if (cli == NULL) {
     debug_print("is_client_closed: invalid arguments");
-    return -1;
+    return 0;
   }
 
   return (cli->inc_flag == -1 && cli->out_flag == -1);
@@ -562,7 +583,7 @@ int is_client_closed(Client *cli) {
 int is_client_open(Client *cli) {
   if (cli == NULL) {
     debug_print("is_client_open: invalid arguments");
-    return -1;
+    return 0;
   }
 
   return (cli->inc_flag == 0 && cli->out_flag == 0);
@@ -631,6 +652,24 @@ void debug_print(const char *format, ...) {
   return;
 }
 
+int setup_client_struct(Client **client, int socket_fd) {
+  // precondition for invalid arguments
+  if (client == NULL || socket_fd < MIN_FD) {
+    debug_print("setup_client_struct: invalid arguments");
+    return -1;
+  }
+
+  // initialize struct memory
+  *client = (Client *) malloc(sizeof(Client));
+  (*client)->buffer = (Buffer *) malloc(sizeof(Client));
+  reset_client_struct(*client);
+
+  // copy in values
+  (*client)->socket_fd = socket_fd;
+
+  return 0;
+}
+
 int reset_client_struct(Client *client) {
   // precondition for invalid argument
   if (client == NULL) {
@@ -673,5 +712,30 @@ int reset_packet_struct(Packet *pack) {
   memset(pack->buf, 0, TEXT_LEN);
   pack->inbuf = 0;
 
+  return 0;
+}
+
+int destroy_client_struct(Client **client) {
+  if(client == NULL) {
+    debug_print("destroy_client_struct: invalid arguments");
+    return -1;
+  }
+
+  // variable for clarity
+  Client *temp = *client;
+
+  // closing the socket
+  int sav = temp->socket_fd;
+  close(temp->socket_fd);
+
+  // freeing heap memory
+  free(temp->buffer);
+  free(temp);
+
+  // moving pointers off the heap
+  *client = NULL;
+  temp = NULL;
+
+  debug_print("destroy_client_struct: destroyed client %d", sav);
   return 0;
 }

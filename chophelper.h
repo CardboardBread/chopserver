@@ -23,11 +23,14 @@
 #define ENQUIRY 5 // basically a ping
 #define ACKNOWLEDGE 6 // signal was received, control1 is recieved status
 #define WAKEUP 7 // wake sleeping connection
+
 #define SHIFT_OUT 14 // TODO
 #define SHIFT_IN 15 // TODO
 #define START_DATA 16 // TODO
-#define CONTROL_KEY 17 // special action 1
-#define CONTROL_END 20 // special action 4
+#define CONTROL_ONE 17 // special action 1
+#define CONTROL_TWO 18 // special action 2
+#define CONTROL_THREE 19 // special action 3
+#define CONTROL_FOUR 20 // special action 4
 #define NEG_ACKNOWLEDGE 21 // received status/message is incorrect/invalid, control1 is status
 #define IDLE 22 // go to sleep, only accept wakeup or escape as signals
 #define END_TRANSMISSION_BLOCK 23 // TODO
@@ -88,14 +91,26 @@ typedef struct packet Packet;
  */
 int setup_new_client(const int listen_fd, Client *clients[]);
 
-int establish_server_connection(const int port, const char *address, Client *cli);
+/*
+ * Immediately connects to a server at the given address and port.
+ * Does not block and will error if no server is available.
+ * Address is assumed to be properly null terminated.
+ * Returns 0 on success, -1 on error.
+ */
+int establish_server_connection(const char *address, const int port, Client **client);
 
 /*
  * Frees the client at the given index in the given array.
  * Length of client array is assumed to be MAX_CONNECTIONS.
  * Returns 0 on success, -1 on error and 1 if the target client doesn't exist.
  */
-int remove_client(const int client_index, Client *clients[]);
+int remove_client_index(const int client_index, Client *clients[]);
+
+/*
+ * Frees the client that the given pointer is pointing to.
+ * Returns 0 on success, -1 on error and 1 if the pointer has no client.
+ */
+int remove_client_address(const int client_index, Client **client);
 
 /*
  * Sending functions
@@ -189,6 +204,8 @@ int assemble_packet(Packet *pack, const char header[PACKET_LEN], const char *buf
  */
 void debug_print(const char *format, ...);
 
+int setup_client_struct(Client **client, int socket_fd);
+
 /*
  * Zeroes out all the fields of a given client
  */
@@ -203,5 +220,7 @@ int reset_buffer_struct(Buffer *buffer);
  * Zeroes out all the fields of a given segment structure.
  */
 int reset_packet_struct(Packet *pack);
+
+int destroy_client_struct(Client **client);
 
 #endif

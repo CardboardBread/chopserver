@@ -13,7 +13,7 @@
 
 int sigint_received;
 
-Client server_connection;
+Client *server_connection;
 
 void sigint_handler(int code);
 
@@ -30,7 +30,7 @@ void sigint_handler(int code) {
 
 int main(void) {
   // connect to locally hosted server
-  int sock_fd = establish_server_connection(PORT, "127.0.0.1", &server_connection);
+  int sock_fd = establish_server_connection("127.0.0.1", PORT, &server_connection);
 
   // setup fd set for selecting
   int max_fd = sock_fd;
@@ -57,11 +57,11 @@ int main(void) {
     }
 
     // reading from server
-    if (FD_ISSET(server_connection.socket_fd, &listen_fds)) {
-      read_header(&server_connection);
+    if (FD_ISSET(server_connection->socket_fd, &listen_fds)) {
+      read_header(server_connection);
 
       // if a client requested a cancel
-      if (server_connection.inc_flag < 0 && server_connection.out_flag < 0) {
+      if (is_client_closed(server_connection)) {
         exit(1);
         //FD_CLR(server_connection.socket_fd, &all_fds);
         //run = 0;
@@ -93,13 +93,13 @@ int main(void) {
       } else if (strcmp(buffer, "wake") == 0) {
         header[PACKET_STATUS] = WAKEUP;
       } else {
-        send_str_to_client(&server_connection, buffer);
+        send_str_to_client(server_connection, buffer);
         continue;
       }
 
       // copy into struct, send to client
       assemble_packet(&pack, header, NULL, 0);
-      write_packet_to_client(&server_connection, &pack);
+      write_packet_to_client(server_connection, &pack);
     }
   }
 

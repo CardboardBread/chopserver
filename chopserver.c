@@ -104,7 +104,7 @@ int main(void) {
         if (client->inc_flag < 0 && client->out_flag < 0) {
           FD_CLR(client->socket_fd, &all_fds);
           printf(client_closed, client->socket_fd);
-          remove_client(index, global_clients);
+          remove_client_index(index, global_clients);
         }
       }
     }
