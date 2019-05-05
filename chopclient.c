@@ -61,7 +61,7 @@ int main(void) {
       read_header(server_connection);
 
       // if a client requested a cancel
-      if (is_client_closed(server_connection)) {
+      if (is_client_status(server_connection, -1)) {
         exit(1);
         //FD_CLR(server_connection.socket_fd, &all_fds);
         //run = 0;

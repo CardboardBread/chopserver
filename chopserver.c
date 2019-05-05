@@ -51,6 +51,7 @@ int main(void) {
     debug_print("SIGINT handler: error");
     exit(1);
   }
+  debug_print(server_header, "SIGINT handler attached");
 
   // setup server address
   struct sockaddr_in *self = init_server_addr(PORT);
@@ -58,6 +59,7 @@ int main(void) {
     debug_print("init_server_addr: error");
     exit(1);
   }
+  debug_print(server_header, "assembled server address");
 
   // setup server socket
   int sock_fd = setup_server_socket(self, CONNECTION_QUEUE);
@@ -65,6 +67,7 @@ int main(void) {
     debug_print("setup_server_socket: error");
     exit(1);
   }
+  debug_print(server_header, "listening on all interfaces");
 
   // setup fd set for selecting
   int max_fd = sock_fd;
@@ -98,10 +101,15 @@ int main(void) {
       Client *client = global_clients[index];
 
       if (client != NULL && FD_ISSET(client->socket_fd, &listen_fds)) {
-        read_header(client);
+        // client has no pending actions
+        if (is_client_status(client, NULL_BYTE)) {
+          read_header(client);
+        } else {
+          read_flags(client);
+        }
 
         // if a client requested a cancel
-        if (client->inc_flag < 0 && client->out_flag < 0) {
+        if (is_client_status(client, -1)) {
           FD_CLR(client->socket_fd, &all_fds);
           printf(client_closed, client->socket_fd);
           remove_client_index(index, global_clients);
@@ -109,6 +117,7 @@ int main(void) {
       }
     }
 
+    // accept new client
     if (FD_ISSET(sock_fd, &listen_fds)) {
       int client_fd = setup_new_client(sock_fd, global_clients);
       if (client_fd < 0) {

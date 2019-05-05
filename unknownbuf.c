@@ -3,9 +3,9 @@
 #include <string.h>
 #include <unistd.h>
 
-#define DATA 100
+#define DATA 92
 #define SEGMENT '7'
-#define STOP '6'
+#define STOP 33
 #define BUFFER 40
 
 char *read_long_text(int fd, int *len_ptr);
@@ -19,7 +19,7 @@ int main(void) {
 
   char buf[DATA];
   for (int i = 0; i < DATA; i++) {
-    buf[i] = SEGMENT;
+    buf[i] = i + 34;
   }
   buf[70] = STOP;
 
@@ -46,6 +46,7 @@ char *read_long_text(int fd, int *len_ptr) {
   }
 
   char *ptr;
+  char *nptr;
   int stop_len;
   if (buf_contains_stop(buffer, readnum, &stop_len)) {
     printf("buf contains stop at %d\n", stop_len);
@@ -55,9 +56,10 @@ char *read_long_text(int fd, int *len_ptr) {
   } else {
     printf("buf keeps going\n");
     int sub_len;
-    ptr = read_long_text(fd, &sub_len);
-    ptr = (char *) realloc(ptr, readnum + sub_len);
-    memmove(ptr + sub_len, buffer, readnum);
+    nptr = read_long_text(fd, &sub_len);
+    ptr = (char *) malloc(readnum + sub_len);
+    memmove(ptr, buffer, readnum);
+    memmove(ptr + readnum, nptr, sub_len);
     *len_ptr = readnum + sub_len;
   }
 

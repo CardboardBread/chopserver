@@ -36,7 +36,7 @@ int setup_new_client(const int listen_fd, Client *clients[]) {
     // placing new client in empty space
     if (clients[i] == NULL) {
       if (setup_client_struct(&(clients[i]), fd) < 0) {
-        debug_print("setup_new_client: failed to setup client");
+        debug_print("setup_new_client: failed to setup client at index %d", i);
         return -1;
       }
 
@@ -47,7 +47,7 @@ int setup_new_client(const int listen_fd, Client *clients[]) {
 
   // close the connection since we can't store it
   close(fd);
-  debug_print("setup_new_client: no empty space for client found, closing connection");
+  debug_print("setup_new_client: no empty space for client %d found, closing connection", fd);
   return -1;
 }
 
@@ -61,17 +61,17 @@ int establish_server_connection(const char *address, const int port, Client **cl
   // connect to server
   int fd = connect_to_server(port, address);
   if (fd < MIN_FD) {
-    debug_print("establish_server_connection: failed to connect to server at %s", address);
+    debug_print("establish_server_connection: failed to connect to server at %s:%d", address, port);
     return -1;
   }
-  debug_print("establish_server_connection: connected to server at %s", address);
+  debug_print("establish_server_connection: connected to server at %s:%d", address, port);
 
   // store fd in client struct
   if (setup_client_struct(client, fd) < 0) {
-    debug_print("establish_server_connection: failed to setup client");
+    debug_print("establish_server_connection: failed to store server connection");
     return -1;
   }
-  debug_print("establish_server_connection: client successfully setup");
+  debug_print("establish_server_connection: server connection successful");
 
   return fd;
 }
@@ -88,6 +88,7 @@ int remove_client_index(const int client_index, Client *clients[]) {
     debug_print("remove_client_index: target index %d has no client", client_index);
     return 1;
   }
+  debug_print("remove_client_index: removing client at index %d", client_index);
 
   return destroy_client_struct(&(clients[client_index]));
 }
@@ -104,8 +105,22 @@ int remove_client_address(const int client_index, Client **client) {
     debug_print("remove_client_address: target address has no client");
     return 1;
   }
+  debug_print("remove_client_address: removing client at %p", *client);
 
   return destroy_client_struct(client);
+}
+
+int read_flags(Client *cli, fd_set *listen_fds) {
+
+  switch(cli->inc_flag) {
+
+  }
+
+  switch(cli->out_flag) {
+
+  }
+
+  return 0;
 }
 
 /*
@@ -131,46 +146,20 @@ int write_buf_to_client(Client *cli, const char *msg, const int msg_len) {
     return 1;
   }
 
-  // assemble header with text signals
-  char head[PACKET_LEN] = {0};
-  head[PACKET_STATUS] = START_TEXT;
-  head[PACKET_CONTROL1] = 1;
-  head[PACKET_CONTROL2] = msg_len;
+  // initialize packet for buffer
+  Packet pack;
+  reset_packet_struct(&pack);
 
-  // write header packet to target
-  int head_written = write(cli->socket_fd, head, PACKET_LEN);
-  if (head_written != PACKET_LEN) {
+  // assemble packet header with text signal
+  char header[PACKET_LEN] = {0};
+  header[PACKET_STATUS] = START_TEXT;
+  header[PACKET_CONTROL1] = 1;
+  header[PACKET_CONTROL2] = msg_len;
 
-    // in case write was not perfectly successful
-    if (head_written < 0) {
-      debug_print("write_buf_to_client: failed to write header to client");
-      return 1;
-    } else {
-      debug_print("write_buf_to_client: wrote incomplete header to client");
-      return 1;
-    }
-  }
+  // assemble packet
+  assemble_packet(&pack, header, msg, msg_len);
 
-  // assemble message into buffer
-  char buf[TEXT_LEN] = {0};
-  snprintf(buf, TEXT_LEN, "%.*s", msg_len, msg);
-
-  // write message to target
-  int bytes_written = write(cli->socket_fd, buf, msg_len);
-  if (bytes_written != msg_len) {
-
-    // in case write was not perfectly successful
-    if (bytes_written < 0) {
-      debug_print("write_buf_to_client: failed to write message to client");
-      return 1;
-    } else {
-      debug_print("write_buf_to_client: wrote incomplete message to client");
-      return 1;
-    }
-  }
-
-  debug_print("write_buf_to_client: wrote text packet of %d bytes to client", bytes_written);
-  return 0;
+  return write_packet_to_client(cli, &pack);
 }
 
 int write_packet_to_client(Client *cli, Packet *pack) {
@@ -336,7 +325,7 @@ int read_header(Client *cli) {
   return status;
 }
 
-int parse_header(Client *cli, char header[PACKET_LEN]);
+int parse_header(Client *cli, const char header[PACKET_LEN]);
 
 int parse_text(Client *cli, const int control1, const int control2) {
   // precondition for invalid arguments
@@ -394,12 +383,14 @@ int parse_text(Client *cli, const int control1, const int control2) {
 }
 
 char *read_long_text(Client *cli, int *len_ptr) {
+  // precondition for invalid arguments
   if (cli == NULL || len_ptr == NULL) {
     debug_print("read_long_text: invalid arguments");
     *len_ptr = -1;
     return NULL;
   }
 
+  // read as much as possible into regular buffer
   char buffer[TEXT_LEN];
   int readnum = read(cli->socket_fd, buffer, TEXT_LEN);
   if (readnum < 0) {
@@ -408,20 +399,34 @@ char *read_long_text(Client *cli, int *len_ptr) {
     return NULL;
   }
 
+  // check if new data contains a stop
   char *ptr;
-  if (buf_contains_stop(buffer, readnum)) {
-    ptr = (char *) malloc(readnum);
-    memmove(ptr, buffer, readnum);
-    *len_ptr = readnum;
+  int stop_len;
+  if (buf_contains_symbol(buffer, readnum, END_TEXT, &stop_len)) {
+    // alloc heap to store the data
+    ptr = (char *) malloc(stop_len);
+
+    // move data onto heap, notify parent fn of length of heap data
+    memmove(ptr, buffer, stop_len);
+    *len_ptr = stop_len;
   } else {
+    // recurse for rest of the data
     int sub_len;
-    ptr = read_long_text(cli, &sub_len);
-    ptr = (char *) realloc(ptr, readnum + sub_len);
-    memmove(ptr + sub_len, buffer, readnum);
+    char *nptr = read_long_text(cli, &sub_len);
+
+    // alloc memory to hold all the data
+    ptr = (char *) malloc(readnum + sub_len);
+
+    // move data from here in
+    memmove(ptr, buffer, readnum);
+
+    // move data from recursion in
+    memmove(ptr + readnum, nptr, sub_len);
+
+    // notify parent fn of length of heap data
     *len_ptr = readnum + sub_len;
   }
 
-  debug_print("read_long_text: failed to read long text section");
   return ptr;
 }
 
@@ -571,36 +576,39 @@ int parse_escape(Client *cli) {
  * Utility Functions
  */
 
-int is_client_closed(Client *cli) {
-  if (cli == NULL) {
-    debug_print("is_client_closed: invalid arguments");
+int is_client_status(Client *cli, const int status) {
+  // precondition for invalid arguments
+  if (cli == NULL || status < 0) {
+    debug_print("is_client_status: invalid arguments");
     return 0;
   }
 
-  return (cli->inc_flag == -1 && cli->out_flag == -1);
+  return (cli->inc_flag == status && cli->out_flag == status);
 }
 
-int is_client_open(Client *cli) {
-  if (cli == NULL) {
-    debug_print("is_client_open: invalid arguments");
-    return 0;
-  }
-
-  return (cli->inc_flag == 0 && cli->out_flag == 0);
-}
-
-int buf_contains_stop(const char *buf, const int buf_len) {
+int buf_contains_symbol(const char *buf, const int buf_len, int symbol, int *symbol_index) {
+  // precondition for invalid arguments
   if (buf == NULL || buf_len < 0) {
     debug_print("buf_contains_stop: invalid arguments");
-    return -1;
+    return 0;
   }
 
-  if (buf_len == 0) return 0;
+  // buffer is empty
+  if (buf_len == 0) {
+    if (symbol_index != NULL) *symbol_index = 0;
+    return 0;
+  }
 
+  // search entire buffer
   for (int i = 0; i < buf_len; i++) {
-    if (buf[i] == 3) return 1;
+    if (buf[i] == symbol) {
+      if (symbol_index != NULL) *symbol_index = i;
+      return 1;
+    }
   }
 
+  // no symbol found
+  if (symbol_index != NULL) *symbol_index = 0;
   return 0;
 }
 

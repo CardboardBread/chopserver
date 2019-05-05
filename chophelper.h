@@ -112,6 +112,8 @@ int remove_client_index(const int client_index, Client *clients[]);
  */
 int remove_client_address(const int client_index, Client **client);
 
+int read_flags(Client *cli, fd_set *listen_fds);
+
 /*
  * Sending functions
  */
@@ -155,7 +157,7 @@ int send_fstr_to_client(Client *cli, const char *format, ...);
 
 int read_header(Client *cli);
 
-int parse_header(Client *cli, char header[PACKET_LEN]);
+int parse_header(Client *cli, const char header[PACKET_LEN]);
 
 int parse_text(Client *cli, const int control1, const int control2);
 
@@ -188,11 +190,15 @@ int parse_escape(Client *cli);
  * Utility Functions
  */
 
-int is_client_closed(Client *cli);
+int is_client_status(Client *cli, const int status);
 
-int is_client_open(Client *cli);
+/*
+ * Finds symbol within buf, under the constrictions of buf_len.
+ * If symbol_index is a valid address, saves the index of the symbol.
+ * Returns 0 if the symbol isn't found, 1 if the symbol is found.
 
-int buf_contains_stop(const char *buf, const int buf_len);
+ */
+int buf_contains_symbol(const char *buf, const int buf_len, int symbol, int *symbol_index);
 
 /*
  * Copies given data into a given packet struct
