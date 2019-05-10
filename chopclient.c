@@ -11,18 +11,16 @@
   #define PORT 50001
 #endif
 
+#ifndef ADDRESS
+  #define ADDRESS "127.0.0.1"
+#endif
+
 int sigint_received;
 
 Client *server_connection;
 
 void sigint_handler(int code);
 
-/*
- * SIGINT handler:
- * We are just raising the sigint_received flag here. Our program will
- * periodically check to see if this flag has been raised, and any necessary
- * work will be done in main() and/or the helper functions.
- */
 void sigint_handler(int code) {
   debug_print("sigint_handler: received SIGINT, setting flag");
   sigint_received = 1;
@@ -30,7 +28,7 @@ void sigint_handler(int code) {
 
 int main(void) {
   // connect to locally hosted server
-  int sock_fd = establish_server_connection("127.0.0.1", PORT, &server_connection);
+  int sock_fd = establish_server_connection(ADDRESS, PORT, &server_connection);
 
   // setup fd set for selecting
   int max_fd = sock_fd;
@@ -60,7 +58,7 @@ int main(void) {
     if (FD_ISSET(server_connection->socket_fd, &listen_fds)) {
       read_header(server_connection);
 
-      // if a client requested a cancel
+      // if escape
       if (is_client_status(server_connection, -1)) {
         exit(1);
         //FD_CLR(server_connection.socket_fd, &all_fds);

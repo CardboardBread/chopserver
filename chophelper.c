@@ -112,12 +112,8 @@ int remove_client_address(const int client_index, Client **client) {
 
 int read_flags(Client *cli, fd_set *listen_fds) {
 
-  switch(cli->inc_flag) {
-
-  }
-
-  switch(cli->out_flag) {
-
+  if (is_client_status(client, NULL_BYTE)) {
+    read_header(cli);
   }
 
   return 0;
@@ -265,9 +261,6 @@ int read_header(Client *cli) {
     }
   }
 
-  // mark client incoming flag
-  cli->inc_flag = head[PACKET_STATUS];
-
   // parse the status
   int status;
   switch(head[PACKET_STATUS]) {
@@ -297,7 +290,7 @@ int read_header(Client *cli) {
 
     case WAKEUP:
       debug_print("read_header: received wakeup header");
-      //status = parse_wakeup();
+      status = parse_wakeup(cli);
       break;
 
     case NEG_ACKNOWLEDGE:
@@ -307,7 +300,7 @@ int read_header(Client *cli) {
 
     case IDLE:
       debug_print("read_header: received idle header");
-      //status = parse_idle();
+      status = parse_idle(cli);
       break;
 
     case ESCAPE:
@@ -459,14 +452,18 @@ int parse_acknowledge(Client *cli, const int control1) {
 
   switch(control1) {
     case ENQUIRY:
-      // TODO: response to ping
+      // TODO: ping was received
       printf("pong\n");
       break;
     case WAKEUP:
       // TODO: the sender says it has woken up
+      cli->inc_flag = NULL_BYTE;
+      cli->out_flag = NULL_BYTE;
       break;
     case IDLE:
       // TODO: the sender says it has gone asleep
+      cli->inc_flag = IDLE;
+      cli->out_flag = IDLE;
       break;
     case ESCAPE:
       // TOOD: the sender knows you're stopping
@@ -479,7 +476,31 @@ int parse_acknowledge(Client *cli, const int control1) {
   return 0;
 }
 
-int parse_wakeup(Client *cli);
+int parse_wakeup(Client *cli) {
+  if (cli == NULL) {
+    debug_print("parse_wakeup: invalid arguments");
+    return -1;
+  }
+
+  // initializing packet struct
+  Packet pack;
+  reset_packet_struct(&pack);
+
+  char header[PACKET_LEN] = {0};
+  if (is_client_status(cli, IDLE)) {
+    header[PACKET_STATUS] = ACKNOWLEDGE;
+    header[PACKET_CONTROL1] = WAKEUP;
+  } else {
+    header[PACKET_STATUS] = NEG_ACKNOWLEDGE;
+    header[PACKET_CONTROL1] = WAKEUP;
+  }
+
+  // copy into struct, send to client
+  assemble_packet(&pack, header, NULL, 0);
+  write_packet_to_client(cli, &pack);
+
+  return 0;
+}
 
 int parse_neg_acknowledge(Client *cli, const int control1) {
   // precondition for invalid argument
@@ -496,10 +517,10 @@ int parse_neg_acknowledge(Client *cli, const int control1) {
       // TODO: ping refused
       break;
     case WAKEUP:
-      // TODO: sender is already awake
+      // TODO: sender is already awake/cannot wakeup
       break;
     case IDLE:
-      // TODO: sender is already sleeping
+      // TODO: sender is already sleeping/cannot sleep
       break;
     case ESCAPE:
       // TODO: you cannot disconnect
@@ -509,7 +530,32 @@ int parse_neg_acknowledge(Client *cli, const int control1) {
   return 0;
 }
 
-int parse_idle(Client *cli);
+int parse_idle(Client *cli) {
+  // precondition for invalid argument
+  if (cli == NULL) {
+    debug_print("parse_idle: invalid arguments");
+    return -1;
+  }
+
+  // initializing packet struct
+  Packet pack;
+  reset_packet_struct(&pack);
+
+  // setting values of header
+  char header[PACKET_LEN] = {0};
+  header[PACKET_STATUS] = ACKNOWLEDGE;
+  header[PACKET_CONTROL1] = IDLE;
+
+  // copy into struct, send to client
+  assemble_packet(&pack, header, NULL, 0);
+  write_packet_to_client(cli, &pack);
+
+  // mark client as sleeping
+  cli->inc_flag = IDLE;
+  cli->out_flag = IDLE;
+
+  return 0;
+}
 
 int parse_escape(Client *cli) {
   // precondition for invalid argument

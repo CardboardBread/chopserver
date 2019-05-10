@@ -27,12 +27,6 @@ Client *global_clients[MAX_CONNECTIONS];
 
 void sigint_handler(int code);
 
-/*
- * SIGINT handler:
- * We are just raising the sigint_received flag here. Our program will
- * periodically check to see if this flag has been raised, and any necessary
- * work will be done in main() and/or the helper functions.
- */
 void sigint_handler(int code) {
   debug_print("sigint_handler: received SIGINT, setting flag");
   sigint_received = 1;
@@ -100,13 +94,9 @@ int main(void) {
     for (int index = 0; index < MAX_CONNECTIONS; index++) {
       Client *client = global_clients[index];
 
+      // relies on short circuting
       if (client != NULL && FD_ISSET(client->socket_fd, &listen_fds)) {
-        // client has no pending actions
-        if (is_client_status(client, NULL_BYTE)) {
-          read_header(client);
-        } else {
-          read_flags(client);
-        }
+        read_flags(client, &all_fds);
 
         // if a client requested a cancel
         if (is_client_status(client, -1)) {

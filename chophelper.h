@@ -1,6 +1,8 @@
 #ifndef __CHOP_HELPER_H__
 #define __CHOP_HELPER_H__
 
+#include <sys/socket.h>
+
 /*
  * Macros and Constants
  */
