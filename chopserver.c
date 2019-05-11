@@ -96,10 +96,10 @@ int main(void) {
 
       // relies on short circuting
       if (client != NULL && FD_ISSET(client->socket_fd, &listen_fds)) {
-        read_flags(client, &all_fds);
+        process_request(client, &all_fds);
 
         // if a client requested a cancel
-        if (is_client_status(client, -1)) {
+        if (is_client_status(client, CANCEL)) {
           FD_CLR(client->socket_fd, &all_fds);
           printf(client_closed, client->socket_fd);
           remove_client_index(index, global_clients);

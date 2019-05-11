@@ -16,10 +16,12 @@
 #define PACKET_CONTROL1 2 // parameter 1 for packet type
 #define PACKET_CONTROL2 3 // parameter 2 for packet type
 
-/// status bytes
+/// Status Bytes
 #define NULL_BYTE 0 // basically a no-operation
-#define START_HEADER 1 // control1 indicates number of extra bytes
+#define START_HEADER 1 // control1 indicates number of extra header bytes
 #define START_TEXT 2 // control1 - num of elements, control2 - size of each element
+	// if both control signals are 0, unknown text length is specified
+	// to send an empty message, send 1 message of 0 length or 1,0 on control signals
 #define END_TEXT 3 // used in conjuction with variable length START_TEXT
 #define END_TRANSMISSION 4 // TODO
 #define ENQUIRY 5 // basically a ping
@@ -36,7 +38,7 @@
 #define NEG_ACKNOWLEDGE 21 // received status/message is incorrect/invalid, control1 is status
 #define IDLE 22 // go to sleep, only accept wakeup or escape as signals
 #define END_TRANSMISSION_BLOCK 23 // TODO
-#define CANCEL 24 // TODO
+#define CANCEL 24 // flag marker for closing connections, should not be sent in a packet
 #define END_OF_MEDIUM 25 // TODO
 #define SUBSTITUTE 26 // TODO
 #define ESCAPE 27 // Disconnect, waits for acknowledge (useful for cleanup)
@@ -55,6 +57,8 @@
 
 static const int debug_fd = STDERR_FILENO;
 static const char debug_header[] = "[DEBUG] ";
+
+static const char recieve_header[] = "[CLIENT %d] \"%s\"\n";
 
 /*
  * Structures and Types
@@ -114,7 +118,7 @@ int remove_client_index(const int client_index, Client *clients[]);
  */
 int remove_client_address(const int client_index, Client **client);
 
-int read_flags(Client *cli, fd_set *listen_fds);
+int process_request(Client *cli, fd_set *all_fds);
 
 /*
  * Sending functions
@@ -157,9 +161,13 @@ int send_fstr_to_client(Client *cli, const char *format, ...);
  * Receiving functions
  */
 
-int read_header(Client *cli);
+int read_header(Client *cli, char head[PACKET_LEN]);
 
-int parse_header(Client *cli, const char header[PACKET_LEN]);
+int parse_header(Client *cli, const char head[PACKET_LEN]);
+
+int parse_idle_header(Client *cli, const char head[PACKET_LEN]);
+
+int parse_long_header(Client *cli, const int control1);
 
 int parse_text(Client *cli, const int control1, const int control2);
 
@@ -193,6 +201,8 @@ int parse_escape(Client *cli);
  */
 
 int is_client_status(Client *cli, const int status);
+
+int client_status(Client *cli);
 
 /*
  * Finds symbol within buf, under the constrictions of buf_len.

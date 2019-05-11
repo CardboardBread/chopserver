@@ -110,10 +110,35 @@ int remove_client_address(const int client_index, Client **client) {
   return destroy_client_struct(client);
 }
 
-int read_flags(Client *cli, fd_set *listen_fds) {
+int process_request(Client *cli, fd_set *all_fds) {
+  if (cli == NULL || all_fds == NULL) {
+    debug_print("process_request: invalid arguments");
+    return -1;
+  }
 
-  if (is_client_status(client, NULL_BYTE)) {
-    read_header(cli);
+  char header[PACKET_LEN] = {0};
+  switch(cli->inc_flag) {
+    case NULL_BYTE:
+      read_header(cli, header);
+      parse_header(cli, header);
+      break;
+    case IDLE:
+      read_header(cli, header);
+      parse_idle_header(cli, header);
+      break;
+    case CANCEL:
+      break;
+    default:
+      break;
+  }
+
+  switch(cli->out_flag) {
+    case NULL_BYTE:
+      break;
+    case CANCEL:
+      break;
+    default:
+      break;
   }
 
   return 0;
@@ -235,7 +260,7 @@ int send_fstr_to_client(Client *cli, const char *format, ...) {
  * Receiving functions
  */
 
-int read_header(Client *cli) {
+int read_header(Client *cli, char head[PACKET_LEN]) {
   // precondition for invalid argument
   if (cli == NULL) {
     debug_print("read_header: invalid argument");
@@ -243,7 +268,6 @@ int read_header(Client *cli) {
   }
 
   // read packet from client
-  char head[PACKET_LEN];
   int head_read = read(cli->socket_fd, head, PACKET_LEN);
   if (head_read != PACKET_LEN) {
 
@@ -261,55 +285,65 @@ int read_header(Client *cli) {
     }
   }
 
+  return 0;
+}
+
+int parse_header(Client *cli, const char head[PACKET_LEN]) {
+  // precondition for invalid arguments
+  if (cli == NULL || head == NULL) {
+    debug_print("parse_header: invalid arguments");
+    return -1;
+  }
+
   // parse the status
   int status;
   switch(head[PACKET_STATUS]) {
     case NULL_BYTE:
-      debug_print("read_header: received NULL header");
+      debug_print("parse_header: received NULL header");
       break;
 
     case START_HEADER:
-      debug_print("read_header: received extended header");
-      //status = parse_header(cli, head);
+      debug_print("parse_header: received extended header");
+      status = parse_long_header(cli, head[PACKET_CONTROL1]);
       break;
 
     case START_TEXT:
-      debug_print("read_header: received text header");
+      debug_print("parse_header: received text header");
       status = parse_text(cli, head[PACKET_CONTROL1], head[PACKET_CONTROL2]);
       break;
 
     case ENQUIRY:
-      debug_print("read_header: received enquiry header");
+      debug_print("parse_header: received enquiry header");
       status = parse_enquiry(cli, head[PACKET_CONTROL1]);
       break;
 
     case ACKNOWLEDGE:
-      debug_print("read_header: received acknowledge header");
+      debug_print("parse_header: received acknowledge header");
       status = parse_acknowledge(cli, head[PACKET_CONTROL1]);
       break;
 
     case WAKEUP:
-      debug_print("read_header: received wakeup header");
+      debug_print("parse_header: received wakeup header");
       status = parse_wakeup(cli);
       break;
 
     case NEG_ACKNOWLEDGE:
-      debug_print("read_header: received negative acknowledge header");
+      debug_print("parse_header: received negative acknowledge header");
       status = parse_neg_acknowledge(cli, head[PACKET_CONTROL1]);
       break;
 
     case IDLE:
-      debug_print("read_header: received idle header");
+      debug_print("parse_header: received idle header");
       status = parse_idle(cli);
       break;
 
     case ESCAPE:
-      debug_print("read_header: received escape header");
+      debug_print("parse_header: received escape header");
       status = parse_escape(cli);
       break;
 
     default: // unsupported/invalid
-      debug_print("read_header: received invalid header");
+      debug_print("parse_header: received invalid header");
       status = -1;
       break;
 
@@ -318,7 +352,47 @@ int read_header(Client *cli) {
   return status;
 }
 
-int parse_header(Client *cli, const char header[PACKET_LEN]);
+int parse_idle_header(Client *cli, const char head[PACKET_LEN]) {
+  // precondition for invalid arguments
+  if (cli == NULL || head == NULL) {
+    debug_print("parse_idle_header: invalid arguments");
+    return -1;
+  }
+
+  int status;
+  switch(head[PACKET_STATUS]) {
+    case NULL_BYTE:
+      debug_print("parse_header: received NULL header");
+      break;
+
+    case ENQUIRY:
+      debug_print("parse_header: received enquiry header");
+      status = parse_enquiry(cli, head[PACKET_CONTROL1]);
+      break;
+
+    case WAKEUP:
+      debug_print("parse_header: received wakeup header");
+      status = parse_wakeup(cli);
+      break;
+
+    case ESCAPE:
+      debug_print("parse_header: received escape header");
+      status = parse_escape(cli);
+      break;
+
+    default: // unsupported/invalid
+      debug_print("parse_header: received invalid header");
+      status = -1;
+      break;
+
+  }
+
+  return status;
+}
+
+int parse_long_header(Client *cli, const int control1) {
+  return 0;
+}
 
 int parse_text(Client *cli, const int control1, const int control2) {
   // precondition for invalid arguments
@@ -327,9 +401,11 @@ int parse_text(Client *cli, const int control1, const int control2) {
     return -1;
   }
 
+  // translate names for readability
   int count = control1;
   int width = control2;
 
+  // signals set to unknown length read
   if (control1 == 0 && control2 == 0) {
     int long_len;
     char *head = read_long_text(cli, &long_len);
@@ -367,8 +443,11 @@ int parse_text(Client *cli, const int control1, const int control2) {
     }
     total += bytes_read;
 
+    // terminate message
+    buffer[bytes_read] = '\0';
+
     // TODO: consume the message
-    printf("Received \"%.*s\"\n", width, buffer);
+    printf(recieve_header, cli->socket_fd, buffer);
   }
 
   debug_print("parse_text: read text section %d bytes wide", total);
@@ -458,18 +537,16 @@ int parse_acknowledge(Client *cli, const int control1) {
     case WAKEUP:
       // TODO: the sender says it has woken up
       cli->inc_flag = NULL_BYTE;
-      cli->out_flag = NULL_BYTE;
       break;
     case IDLE:
       // TODO: the sender says it has gone asleep
       cli->inc_flag = IDLE;
-      cli->out_flag = IDLE;
       break;
     case ESCAPE:
       // TOOD: the sender knows you're stopping
       // marking this client as closed
-      cli->inc_flag = -1;
-      cli->out_flag = -1;
+      cli->inc_flag = CANCEL;
+      cli->out_flag = CANCEL;
       break;
   }
 
@@ -486,10 +563,14 @@ int parse_wakeup(Client *cli) {
   Packet pack;
   reset_packet_struct(&pack);
 
+  // setting values of header
   char header[PACKET_LEN] = {0};
-  if (is_client_status(cli, IDLE)) {
+  if (cli->inc_flag == IDLE) {
     header[PACKET_STATUS] = ACKNOWLEDGE;
     header[PACKET_CONTROL1] = WAKEUP;
+
+    // demark incoming client flag
+    cli->inc_flag = NULL_BYTE;
   } else {
     header[PACKET_STATUS] = NEG_ACKNOWLEDGE;
     header[PACKET_CONTROL1] = WAKEUP;
@@ -543,16 +624,20 @@ int parse_idle(Client *cli) {
 
   // setting values of header
   char header[PACKET_LEN] = {0};
-  header[PACKET_STATUS] = ACKNOWLEDGE;
-  header[PACKET_CONTROL1] = IDLE;
+  if (cli->inc_flag == NULL_BYTE) {
+    header[PACKET_STATUS] = ACKNOWLEDGE;
+    header[PACKET_CONTROL1] = IDLE;
+
+    // mark client as sleeping
+    cli->inc_flag = IDLE;
+  } else {
+    header[PACKET_STATUS] = NEG_ACKNOWLEDGE;
+    header[PACKET_CONTROL1] = IDLE;
+  }
 
   // copy into struct, send to client
   assemble_packet(&pack, header, NULL, 0);
   write_packet_to_client(cli, &pack);
-
-  // mark client as sleeping
-  cli->inc_flag = IDLE;
-  cli->out_flag = IDLE;
 
   return 0;
 }
@@ -578,8 +663,8 @@ int parse_escape(Client *cli) {
   write_packet_to_client(cli, &pack);
 
   // marking this client as closed
-  cli->inc_flag = -1;
-  cli->out_flag = -1;
+  cli->inc_flag = CANCEL;
+  cli->out_flag = CANCEL;
 
   return 0;
 }

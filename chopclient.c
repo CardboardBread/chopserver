@@ -56,10 +56,10 @@ int main(void) {
 
     // reading from server
     if (FD_ISSET(server_connection->socket_fd, &listen_fds)) {
-      read_header(server_connection);
+      process_request(server_connection, &all_fds);
 
       // if escape
-      if (is_client_status(server_connection, -1)) {
+      if (is_client_status(server_connection, CANCEL)) {
         exit(1);
         //FD_CLR(server_connection.socket_fd, &all_fds);
         //run = 0;
