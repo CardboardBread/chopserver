@@ -144,6 +144,52 @@ int process_request(Client *cli, fd_set *all_fds) {
   return 0;
 }
 
+int send_str_to_all(Client *clients[], const char *str) {
+  // precondition for invalid arguments
+  if (clients == NULL || str == NULL) {
+    debug_print("send_str_to_all: invalid arguments");
+    return -1;
+  }
+
+  // iterate through all available clients, stopping if any fail
+  int status;
+  for (int i = 0; i < MAX_CONNECTIONS; i++) {
+    if (clients[i] != NULL) {
+      status = send_str_to_client(clients[i], str);
+      if (status) return status;
+    }
+  }
+
+  return 0;
+}
+
+int send_fstr_to_all(Client *clients[], const char *format, ...) {
+  // precondition for invalid arguments
+  if (clients == NULL) {
+    debug_print("send_fstr_to_all: invalid arguments");
+    return -1;
+  }
+
+  // buffer for assembling format string
+  char msg[TEXT_LEN + 1];
+
+  va_list args;
+  va_start(args, format);
+  vsnprintf(msg, TEXT_LEN, format, args);
+  va_end(args);
+
+  // iterate through all available clients, stopping if any fail
+  int status;
+  for (int i = 0; i < MAX_CONNECTIONS; i++) {
+    if (clients[i] != NULL) {
+      status = send_str_to_client(clients[i], msg);
+      if (status) return status;
+    }
+  }
+
+  return 0;
+}
+
 /*
  * Sending functions
  */
@@ -262,7 +308,7 @@ int send_fstr_to_client(Client *cli, const char *format, ...) {
 
 int read_header(Client *cli, char head[PACKET_LEN]) {
   // precondition for invalid argument
-  if (cli == NULL) {
+  if (cli == NULL || head == NULL) {
     debug_print("read_header: invalid argument");
     return -1;
   }
@@ -707,6 +753,45 @@ int parse_escape(Client *cli) {
  * Utility Functions
  */
 
+int is_address(const char *str) {
+  if (str == NULL) {
+    debug_print("is_address: invalid arguments");
+    return -1;
+  }
+
+  // copy string to local buffer for tokenizing
+  int cap = strlen(str);
+  char addr[cap + 1];
+  strcpy(addr, str);
+
+  // tokenize by the periods
+  long num;
+  char *ptr;
+  char *token;
+  char *rest = addr;
+  for (int i = 0; i < 4; i++) {
+    token = strtok_r(rest, ".", &rest);
+
+    // in case less than 4 tokens are available
+    if (token == NULL) {
+      debug_print("is_address: \"%s\" is not in address format", str);
+      return 0;
+    }
+
+    // convert token to number, check if valid as byte
+    num = strtol(token, &ptr, 10);
+    if (num < 0 || num > 255) {
+      debug_print("is_address: \"%s\" has an invalid value", str);
+      return 0;
+    }
+  }
+
+  debug_print("is_address: \"%s\" is a valid address", str);
+  return 1;
+}
+
+int is_name(const char *str);
+
 int is_client_status(Client *cli, const int status) {
   // precondition for invalid arguments
   if (cli == NULL || status < 0) {
@@ -793,18 +878,37 @@ void debug_print(const char *format, ...) {
 
 int setup_client_struct(Client **client, int socket_fd) {
   // precondition for invalid arguments
-  if (client == NULL || socket_fd < MIN_FD) {
+  if (client == NULL) {
     debug_print("setup_client_struct: invalid arguments");
     return -1;
   }
 
   // initialize struct memory
   *client = (Client *) malloc(sizeof(Client));
-  (*client)->buffer = (Buffer *) malloc(sizeof(Client));
+  (*client)->buffer = (Buffer *) malloc(sizeof(Buffer));
   reset_client_struct(*client);
 
   // copy in values
-  (*client)->socket_fd = socket_fd;
+  if (socket_fd >= MIN_FD) (*client)->socket_fd = socket_fd;
+
+  return 0;
+}
+
+int setup_packet_struct(Packet **packet, char *head, char *data) {
+  // precondition for invalid arguments
+  if (packet == NULL) {
+    debug_print("setup_packet_struct: invalid arguments");
+    return -1;
+  }
+
+  // initialize struct memory
+  *packet = (Packet *) malloc(sizeof(Packet));
+
+  // copy in header
+  if (head != NULL) memmove((*packet)->head, head, PACKET_LEN);
+
+  // copy in data
+  if (data != NULL) memmove((*packet)->buf, data, TEXT_LEN);
 
   return 0;
 }

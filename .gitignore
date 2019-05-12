@@ -37,6 +37,7 @@
 *.hex
 chopclient
 chopserver
+timeserver
 
 # Debug files
 *.dSYM/

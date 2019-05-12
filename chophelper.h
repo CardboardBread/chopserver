@@ -120,6 +120,10 @@ int remove_client_address(const int client_index, Client **client);
 
 int process_request(Client *cli, fd_set *all_fds);
 
+int send_str_to_all(Client *clients[], const char *str);
+
+int send_fstr_to_all(Client *clients[], const char *format, ...);
+
 /*
  * Sending functions
  */
@@ -199,6 +203,15 @@ int parse_escape(Client *cli);
 /*
  * Utility Functions
  */
+
+/*
+ * Determines if the given string is a valid IPv4 address.
+ * Assumes the string argument is null-terminated.
+ * Returns 1 if the address is valid, 0 if it is not, and -1 on error.
+ */
+int is_address(const char *str);
+
+int is_name(const char *str);
 
 int is_client_status(Client *cli, const int status);
 

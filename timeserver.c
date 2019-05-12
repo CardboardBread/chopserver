@@ -5,6 +5,7 @@
 #include <signal.h>
 #include <stdarg.h>
 #include <errno.h>
+#include <time.h>
 
 #include "socket.h"
 #include "chophelper.h"
@@ -25,7 +26,17 @@ int sigint_received;
 
 Client *global_clients[MAX_CONNECTIONS];
 
+time_t next_minute();
 void sigint_handler(int code);
+int main(void);
+
+time_t next_minute(time_t curr_second) {
+  time_t curr_minute = curr_second / 60;
+  time_t next_minute = curr_minute + 1;
+  time_t remaining = next_minute * 60 - curr_second;
+  debug_print("next_minute: %ld seconds left to the minute", remaining);
+  return remaining;
+}
 
 void sigint_handler(int code) {
   debug_print("sigint_handler: received SIGINT, setting flag");
@@ -69,8 +80,15 @@ int main(void) {
   FD_ZERO(&all_fds);
   FD_SET(sock_fd, &all_fds);
 
+  // setup timeout
+  struct timeval timeout;
+
   int run = 1;
   while(run) {
+
+    // setup timeout for time until next minute
+    timeout.tv_sec = next_minute(time(NULL));
+    timeout.tv_usec = 0;
 
     // closing connections and freeing memory before the process ends
     if (sigint_received) {
@@ -80,14 +98,25 @@ int main(void) {
 
     // selecting
     listen_fds = all_fds;
-    int nready = select(max_fd + 1, &listen_fds, NULL, NULL, NULL);
-    if (nready < 0) {
-      if (errno == EINTR) {
+    int nready = select(max_fd + 1, &listen_fds, NULL, NULL, &timeout);
+    switch(nready) {
+      case -1: // error
+        if (errno == EINTR) {
+          continue;
+        } else {
+          debug_print("select: non-interrupt error");
+          exit(1);
+        }
+
+      case 0: // timeout
+        debug_print("select: timeout reached, resetting");
+        send_fstr_to_all(global_clients, "The time is %ld", time(NULL));
         continue;
-      } else {
-        debug_print("select: non-interrupt error");
-        exit(1);
-      }
+
+      default: // fds ready
+        debug_print("select: %d sockets ready for operation", nready);
+        break;
+
     }
 
     // check all clients if they can read

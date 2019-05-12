@@ -1,7 +1,7 @@
 PORT=15342
-CFLAGS = -DPORT=$(PORT) -g -Wall -Werror -std=gnu99
+CFLAGS = -DPORT=$(PORT) -g -Wall -Werror
 
-all: chopserver chopclient
+all: chopserver chopclient timeserver
 
 chopserver: chopserver.o socket.o chophelper.o
 	gcc ${CFLAGS} -o $@ $^
@@ -9,8 +9,11 @@ chopserver: chopserver.o socket.o chophelper.o
 chopclient: chopclient.o socket.o chophelper.o
 	gcc ${CFLAGS} -o $@ $^
 
+timeserver: timeserver.o socket.o chophelper.o
+	gcc ${CFLAGS} -o $@ $^
+
 %.o: %.c
 	gcc ${CFLAGS} -c $<
 
 clean:
-	rm -f *.o chopserver chopclient
+	rm -f *.o chopserver chopclient timeserver
