@@ -25,6 +25,7 @@
 #define END_TEXT 3 // used in conjuction with variable length START_TEXT
 #define END_TRANSMISSION 4 // TODO
 #define ENQUIRY 5 // basically a ping
+	// control signal 1 can indicate the length of a package, WIP a timestamp
 #define ACKNOWLEDGE 6 // signal was received, control1 is recieved status
 #define WAKEUP 7 // wake sleeping connection
 
@@ -59,6 +60,7 @@ static const int debug_fd = STDERR_FILENO;
 static const char debug_header[] = "[DEBUG] ";
 
 static const char recieve_header[] = "[CLIENT %d] \"%s\"\n";
+static const char recieve_len_header[] = "[CLIENT %d] \"%.*s\"\n";
 
 /*
  * Structures and Types

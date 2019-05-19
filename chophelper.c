@@ -270,7 +270,8 @@ int write_packet_to_client(Client *cli, Packet *pack) {
   // demark client outgoing flag
   cli->out_flag = 0;
 
-  debug_print("write_packet_to_client: wrote packet of %d bytes to client", bytes_written);
+  // TODO: this is very platform dependent
+  debug_print("write_packet_to_client: wrote packet of style %d and data of %d bytes to client", *((int *) pack->head), bytes_written);
   return 0;
 }
 
@@ -331,6 +332,8 @@ int read_header(Client *cli, char head[PACKET_LEN]) {
     }
   }
 
+  // TODO: this is very platform dependent
+  debug_print("read_header: read a header of style %d", *((int *) head));
   return 0;
 }
 
@@ -408,26 +411,31 @@ int parse_idle_header(Client *cli, const char head[PACKET_LEN]) {
   int status;
   switch(head[PACKET_STATUS]) {
     case NULL_BYTE:
-      debug_print("parse_header: received NULL header");
+      debug_print("parse_idle_header: received NULL header");
       break;
 
     case ENQUIRY:
-      debug_print("parse_header: received enquiry header");
+      debug_print("parse_idle_header: received enquiry header");
       status = parse_enquiry(cli, head[PACKET_CONTROL1]);
       break;
 
     case WAKEUP:
-      debug_print("parse_header: received wakeup header");
+      debug_print("parse_idle_header: received wakeup header");
       status = parse_wakeup(cli);
       break;
 
     case ESCAPE:
-      debug_print("parse_header: received escape header");
+      debug_print("parse_idle_header: received escape header");
       status = parse_escape(cli);
       break;
 
+    case ACKNOWLEDGE:
+      debug_print("parse_idle_header: received acknowledge header");
+      status = parse_acknowledge(cli, head[PACKET_CONTROL1]);
+      break;
+
     default: // unsupported/invalid
-      debug_print("parse_header: received invalid header");
+      debug_print("parse_idle_header: received invalid header");
       status = -1;
       break;
 
@@ -464,8 +472,8 @@ int parse_text(Client *cli, const int control1, const int control2) {
       }
     }
 
-    printf("Received long message as follows:\n");
-    printf("%.*s\n", long_len, head);
+    printf(recieve_len_header, cli->socket_fd, long_len, head);
+    debug_print("parse_text: read long text section %d bytes wide", long_len);
     return 0;
   }
 
@@ -563,6 +571,8 @@ int parse_enquiry(Client *cli, const int control1) {
   header[PACKET_STATUS] = ACKNOWLEDGE;
   header[PACKET_CONTROL1] = ENQUIRY;
 
+  debug_print("parse_enquiry: returning ping to client %d", cli->socket_fd);
+
   // copy into struct, send to client
   assemble_packet(&pack, header, NULL, 0);
   return write_packet_to_client(cli, &pack);
@@ -578,18 +588,22 @@ int parse_acknowledge(Client *cli, const int control1) {
   switch(control1) {
     case ENQUIRY:
       // TODO: ping was received
+      debug_print("parse_acknowledge: client %d returned ping", cli->socket_fd);
       printf("pong\n");
       break;
     case WAKEUP:
       // TODO: the sender says it has woken up
+      debug_print("parse_acknowledge: client %d successfully woken up", cli->socket_fd);
       cli->inc_flag = NULL_BYTE;
       break;
     case IDLE:
       // TODO: the sender says it has gone asleep
+      debug_print("parse_acknowledge: client %d has begun sleeping", cli->socket_fd);
       cli->inc_flag = IDLE;
       break;
     case ESCAPE:
       // TOOD: the sender knows you're stopping
+      debug_print("parse_acknowledge: client %d stop request accepted", cli->socket_fd);
       // marking this client as closed
       cli->inc_flag = CANCEL;
       cli->out_flag = CANCEL;
@@ -617,9 +631,12 @@ int parse_wakeup(Client *cli) {
 
     // demark incoming client flag
     cli->inc_flag = NULL_BYTE;
+    debug_print("parse_wakeup: marking client %d as awake", cli->socket_fd);
   } else {
     header[PACKET_STATUS] = NEG_ACKNOWLEDGE;
     header[PACKET_CONTROL1] = WAKEUP;
+
+    debug_print("parse_wakeup: client %d is not asleep, refusing wake-up request", cli->socket_fd);
   }
 
   // copy into struct, send to client
@@ -639,18 +656,23 @@ int parse_neg_acknowledge(Client *cli, const int control1) {
   switch(control1) {
     case START_TEXT:
       // TODO: text arguments are invalid/message is invalid
+      debug_print("parse_neg_acknowledge: client %d refused text packet", cli->socket_fd);
       break;
     case ENQUIRY:
       // TODO: ping refused
+      debug_print("parse_neg_acknowledge: client %d refused ping request", cli->socket_fd);
       break;
     case WAKEUP:
       // TODO: sender is already awake/cannot wakeup
+      debug_print("parse_neg_acknowledge: client %d refused wake-up request", cli->socket_fd);
       break;
     case IDLE:
       // TODO: sender is already sleeping/cannot sleep
+      debug_print("parse_neg_acknowledge: client %d refused idle request", cli->socket_fd);
       break;
     case ESCAPE:
       // TODO: you cannot disconnect
+      debug_print("parse_neg_acknowledge: client %d refused disconnect request", cli->socket_fd);
       break;
   }
 
@@ -676,9 +698,12 @@ int parse_idle(Client *cli) {
 
     // mark client as sleeping
     cli->inc_flag = IDLE;
+    debug_print("parse_idle: marking client %d as sleeping", cli->socket_fd);
   } else {
     header[PACKET_STATUS] = NEG_ACKNOWLEDGE;
     header[PACKET_CONTROL1] = IDLE;
+
+    debug_print("parse_idle: client %d is busy, refusing sleep request", cli->socket_fd);
   }
 
   // copy into struct, send to client
@@ -703,6 +728,8 @@ int parse_escape(Client *cli) {
   char header[PACKET_LEN] = {0};
   header[PACKET_STATUS] = ACKNOWLEDGE;
   header[PACKET_CONTROL1] = ESCAPE;
+
+  debug_print("parse_escape: shutting down connection to client %d", cli->socket_fd);
 
   // copy into struct, send to client
   assemble_packet(&pack, header, NULL, 0);
