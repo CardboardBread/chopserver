@@ -41,14 +41,14 @@ int setup_server_socket(struct sockaddr_in *self, int num_queue) {
     // server terminates. Avoids the "address in use" error
     int on = 1;
     int status = setsockopt(soc, SOL_SOCKET, SO_REUSEADDR,
-        (const char *) &on, sizeof(on));
+                            (const char *) &on, sizeof(on));
     if (status < 0) {
         perror("setsockopt");
         exit(1);
     }
 
     // Associate the process with the address and a port
-    if (bind(soc, (struct sockaddr *)self, sizeof(*self)) < 0) {
+    if (bind(soc, (struct sockaddr *) self, sizeof(*self)) < 0) {
         // bind failed; could be because port is in use.
         perror("bind");
         exit(1);
@@ -74,7 +74,7 @@ int accept_connection(int listenfd) {
     unsigned int peer_len = sizeof(peer);
     peer.sin_family = PF_INET;
 
-    int client_socket = accept(listenfd, (struct sockaddr *)&peer, &peer_len);
+    int client_socket = accept(listenfd, (struct sockaddr *) &peer, &peer_len);
     if (client_socket < 0) {
         perror("accept");
         return -1;
@@ -115,7 +115,7 @@ int connect_to_server(int port, const char *hostname) {
     addr.sin_addr = *((struct in_addr *) hp->h_addr);
 
     // Request connection to server.
-    if (connect(soc, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
+    if (connect(soc, (struct sockaddr *) &addr, sizeof(addr)) == -1) {
         perror("connect");
         exit(1);
     }

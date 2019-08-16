@@ -10,7 +10,7 @@
 #include "chophelper.h"
 
 #ifndef PORT
-  #define PORT 50001
+#define PORT 50001
 #endif
 
 const char server_header[] = "[SERVER] %s\n";
@@ -28,98 +28,98 @@ Client *global_clients[MAX_CONNECTIONS];
 void sigint_handler(int code);
 
 void sigint_handler(int code) {
-  debug_print("sigint_handler: received SIGINT, setting flag");
-  sigint_received = 1;
+    debug_print("sigint_handler: received SIGINT, setting flag");
+    sigint_received = 1;
 }
 
 int main(void) {
-  // Reset SIGINT received flag.
-  sigint_received = 0;
+    // Reset SIGINT received flag.
+    sigint_received = 0;
 
-  // setup SIGINT handler
-  struct sigaction act1;
-  act1.sa_handler = sigint_handler;
-  sigemptyset(&act1.sa_mask);
-  act1.sa_flags = SA_RESTART; // ensures interrupted calls dont error out
-  if (sigaction(SIGINT, &act1, NULL) < 0) {
-    debug_print("sigaction: error");
-    exit(1);
-  }
-  debug_print("sigaction: sigint_handler attached");
-
-  // setup server address
-  struct sockaddr_in *self = init_server_addr(PORT);
-  if (self == NULL) {
-    debug_print("init_server_addr: error");
-    exit(1);
-  }
-  debug_print("init_server_addr: successful");
-
-  // setup server socket
-  int sock_fd = setup_server_socket(self, CONNECTION_QUEUE);
-  if (sock_fd < MIN_FD) {
-    debug_print("setup_server_socket: error");
-    exit(1);
-  }
-  debug_print("setup_server_socket: listening on all interfaces");
-
-  // setup fd set for selecting
-  int max_fd = sock_fd;
-  fd_set all_fds, listen_fds;
-  FD_ZERO(&all_fds);
-  FD_SET(sock_fd, &all_fds);
-
-  int run = 1;
-  while(run) {
-
-    // closing connections and freeing memory before the process ends
-    if (sigint_received) {
-      debug_print("main: caught SIGINT, exiting");
-      exit(1);
-    }
-
-    // selecting
-    listen_fds = all_fds;
-    int nready = select(max_fd + 1, &listen_fds, NULL, NULL, NULL);
-    if (nready < 0) {
-      if (errno == EINTR) {
-        continue;
-      } else {
-        debug_print("select: non-interrupt error");
+    // setup SIGINT handler
+    struct sigaction act1;
+    act1.sa_handler = sigint_handler;
+    sigemptyset(&act1.sa_mask);
+    act1.sa_flags = SA_RESTART; // ensures interrupted calls dont error out
+    if (sigaction(SIGINT, &act1, NULL) < 0) {
+        debug_print("sigaction: error");
         exit(1);
-      }
     }
+    debug_print("sigaction: sigint_handler attached");
 
-    // check all clients if they can read
-    for (int index = 0; index < MAX_CONNECTIONS; index++) {
-      Client *client = global_clients[index];
+    // setup server address
+    struct sockaddr_in *self = init_server_addr(PORT);
+    if (self == NULL) {
+        debug_print("init_server_addr: error");
+        exit(1);
+    }
+    debug_print("init_server_addr: successful");
 
-      // relies on short circuting
-      if (client != NULL && FD_ISSET(client->socket_fd, &listen_fds)) {
-        process_request(client, &all_fds);
+    // setup server socket
+    int sock_fd = setup_server_socket(self, CONNECTION_QUEUE);
+    if (sock_fd < MIN_FD) {
+        debug_print("setup_server_socket: error");
+        exit(1);
+    }
+    debug_print("setup_server_socket: listening on all interfaces");
 
-        // if a client requested a cancel
-        if (is_client_status(client, CANCEL)) {
-          FD_CLR(client->socket_fd, &all_fds);
-          printf(client_closed, client->socket_fd);
-          remove_client_index(index, global_clients);
+    // setup fd set for selecting
+    int max_fd = sock_fd;
+    fd_set all_fds, listen_fds;
+    FD_ZERO(&all_fds);
+    FD_SET(sock_fd, &all_fds);
+
+    int run = 1;
+    while (run) {
+
+        // closing connections and freeing memory before the process ends
+        if (sigint_received) {
+            debug_print("main: caught SIGINT, exiting");
+            exit(1);
         }
-      }
+
+        // selecting
+        listen_fds = all_fds;
+        int nready = select(max_fd + 1, &listen_fds, NULL, NULL, NULL);
+        if (nready < 0) {
+            if (errno == EINTR) {
+                continue;
+            } else {
+                debug_print("select: non-interrupt error");
+                exit(1);
+            }
+        }
+
+        // check all clients if they can read
+        for (int index = 0; index < MAX_CONNECTIONS; index++) {
+            Client *client = global_clients[index];
+
+            // relies on short circuting
+            if (client != NULL && FD_ISSET(client->socket_fd, &listen_fds)) {
+                process_request(client, &all_fds);
+
+                // if a client requested a cancel
+                if (is_client_status(client, CANCEL)) {
+                    FD_CLR(client->socket_fd, &all_fds);
+                    printf(client_closed, client->socket_fd);
+                    remove_client_index(index, global_clients);
+                }
+            }
+        }
+
+        // accept new client
+        if (FD_ISSET(sock_fd, &listen_fds)) {
+            int client_fd = setup_new_client(sock_fd, global_clients);
+            if (client_fd < 0) {
+                continue;
+            }
+
+            if (client_fd > max_fd) max_fd = client_fd;
+
+            FD_SET(client_fd, &all_fds);
+            printf(connection_accept, client_fd);
+        }
     }
 
-    // accept new client
-    if (FD_ISSET(sock_fd, &listen_fds)) {
-      int client_fd = setup_new_client(sock_fd, global_clients);
-      if (client_fd < 0) {
-        continue;
-      }
-
-      if (client_fd > max_fd) max_fd = client_fd;
-
-      FD_SET(client_fd, &all_fds);
-      printf(connection_accept, client_fd);
-    }
-  }
-
-  return 0;
+    return 0;
 }

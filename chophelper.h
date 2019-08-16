@@ -20,12 +20,12 @@
 #define NULL_BYTE 0 // basically a no-operation
 #define START_HEADER 1 // control1 indicates number of extra header bytes
 #define START_TEXT 2 // control1 - num of elements, control2 - size of each element
-	// if both control signals are 0, unknown text length is specified
-	// to send an empty message, send 1 message of 0 length or 1,0 on control signals
+// if both control signals are 0, unknown text length is specified
+// to send an empty message, send 1 message of 0 length or 1,0 on control signals
 #define END_TEXT 3 // used in conjuction with variable length START_TEXT
 #define END_TRANSMISSION 4 // TODO
 #define ENQUIRY 5 // basically a ping
-	// control signal 1 can indicate the length of a package, WIP a timestamp
+// control signal 1 can indicate the length of a package, WIP a timestamp
 #define ACKNOWLEDGE 6 // signal was received, control1 is recieved status
 #define WAKEUP 7 // wake sleeping connection
 
@@ -67,24 +67,24 @@ static const char recieve_len_header[] = "[CLIENT %d] \"%.*s\"\n";
  */
 
 struct socket_buffer {
-	char buf[TEXT_LEN];
-	int consumed;
-	int inbuf;
+    char buf[TEXT_LEN];
+    int consumed;
+    int inbuf;
 };
 typedef struct socket_buffer Buffer;
 
 struct client {
-	int socket_fd;
-  int inc_flag;
-  int out_flag;
-	struct socket_buffer *buffer;
+    int socket_fd;
+    int inc_flag;
+    int out_flag;
+    struct socket_buffer *buffer;
 };
 typedef struct client Client;
 
 struct packet {
-  char head[PACKET_LEN];
-	char buf[TEXT_LEN];
-  int inbuf;
+    char head[PACKET_LEN];
+    char buf[TEXT_LEN];
+    int inbuf;
 };
 typedef struct packet Packet;
 
@@ -195,12 +195,12 @@ int parse_escape(Client *cli);
  * Data Layer functions
  */
 
- /*
-  * Replaces the first '\n' or '\r\n' found in str with a null terminator.
-  * Returns the index of the new first null terminator if found, or -1 if
-  * not found.
-  */
- int remove_newline(char *str, int len);
+/*
+ * Replaces the first '\n' or '\r\n' found in str with a null terminator.
+ * Returns the index of the new first null terminator if found, or -1 if
+ * not found.
+ */
+int remove_newline(char *str, int len);
 
 /*
  * Utility Functions
