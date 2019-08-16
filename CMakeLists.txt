@@ -1,0 +1,5 @@
+cmake_minimum_required (VERSION 2.6)
+project (chopserver)
+add_executable(chopserver chopserver.c socket.c chophelper.c)
+add_executable(timeserver timeserver.c socket.c chophelper.c)
+add_executable(chopclient chopclient.c socket.c chophelper.c)
