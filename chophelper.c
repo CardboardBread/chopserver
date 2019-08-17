@@ -564,6 +564,18 @@ int parse_enquiry(Client *cli, const int control1) {
         return -1;
     }
 
+    switch(control1) {
+      case 0:
+        // just return an acknowledge
+      case 1:
+        // return a enquiry signal 0
+      case 2:
+        // parse time in data section, return acknowledge of time ping
+      default:
+        debug_print("parse_enquiry: invalid/unsupported control signal sent");
+        return -1;
+    }
+
     // initializing packet struct
     Packet pack;
     reset_packet_struct(&pack);
@@ -698,8 +710,9 @@ int parse_idle(Client *cli) {
         header[PACKET_STATUS] = ACKNOWLEDGE;
         header[PACKET_CONTROL1] = IDLE;
 
-        // mark client as sleeping
+        // mark client as sleeping on both channels
         cli->inc_flag = IDLE;
+        cli->out_flag = IDLE;
         debug_print("parse_idle: marking client %d as sleeping", cli->socket_fd);
     } else {
         header[PACKET_STATUS] = NEG_ACKNOWLEDGE;
