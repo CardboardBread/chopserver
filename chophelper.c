@@ -112,37 +112,31 @@ int remove_client_address(const int client_index, Client **client) {
 }
 
 int process_request(Client *cli, fd_set *all_fds) {
+    // precondition for invalid arguments
     if (cli == NULL || all_fds == NULL) {
         debug_print("process_request: invalid arguments");
         return -1;
     }
 
+    int status = 0;
     char header[PACKET_LEN] = {0};
     switch (cli->inc_flag) {
         case NULL_BYTE:
-            read_header(cli, header);
-            parse_header(cli, header);
-            break;
-        case IDLE:
-            read_header(cli, header);
-            parse_idle_header(cli, header);
+            debug_print("process_request: client is flagged for normal reading operation.");
+            status = read_header(cli, header);
+            if (status) {
+                break;
+            }
+            status = parse_header(cli, header);
             break;
         case CANCEL:
+            debug_print("process_request: client flagged as closed, refusing to read");
             break;
         default:
             break;
     }
 
-    switch (cli->out_flag) {
-        case NULL_BYTE:
-            break;
-        case CANCEL:
-            break;
-        default:
-            break;
-    }
-
-    return 0;
+    return status;
 }
 
 int send_str_to_all(Client *clients[], const char *str) {
@@ -403,50 +397,25 @@ int parse_header(Client *cli, const char head[PACKET_LEN]) {
     return status;
 }
 
-int parse_idle_header(Client *cli, const char head[PACKET_LEN]) {
+int parse_long_header(Client *cli, const int control1) {
     // precondition for invalid arguments
-    if (cli == NULL || head == NULL) {
-        debug_print("parse_idle_header: invalid arguments");
+    if (cli == NULL || control1 < 0) {
+        debug_print("parse_long_header: invalid arguments");
         return -1;
     }
 
-    int status;
-    switch (head[PACKET_STATUS]) {
-        case NULL_BYTE:
-            debug_print("parse_idle_header: received NULL header");
-            break;
+    int packetcount = control1;
+    debug_print("parse_long_header: long header contains %d packets", packetcount);
 
-        case ENQUIRY:
-            debug_print("parse_idle_header: received enquiry header");
-            status = parse_enquiry(cli, head[PACKET_CONTROL1]);
-            break;
-
-        case WAKEUP:
-            debug_print("parse_idle_header: received wakeup header");
-            status = parse_wakeup(cli);
-            break;
-
-        case ESCAPE:
-            debug_print("parse_idle_header: received escape header");
-            status = parse_escape(cli);
-            break;
-
-        case ACKNOWLEDGE:
-            debug_print("parse_idle_header: received acknowledge header");
-            status = parse_acknowledge(cli, head[PACKET_CONTROL1]);
-            break;
-
-        default: // unsupported/invalid
-            debug_print("parse_idle_header: received invalid header");
-            status = -1;
-            break;
-
+    int status = 0;
+    char header[PACKET_LEN] = {0};
+    for (int i = 0; i < packetcount; i++) {
+        status = read_header(cli, header);
+        if (status) break;
+        status = parse_header(cli, header);
+        if (status) break;
     }
 
-    return status;
-}
-
-int parse_long_header(Client *cli, const int control1) {
     return 0;
 }
 
@@ -918,6 +887,25 @@ void debug_print(const char *format, ...) {
     return;
 }
 
+int setup_buffer_struct(Buffer **buffer) {
+    // precondition for invalid arguments
+    if (buffer == NULL) {
+        debug_print("setup_buffer_struct: invalid arguments");
+        return -1;
+    }
+
+    // initialize struct memory
+    *buffer = (Buffer *) malloc(sizeof(Buffer));
+
+    // variable for clarity
+    Buffer *temp = *buffer;
+
+    // ensure default values for struct
+    reset_buffer_struct(temp);
+
+    return 0;
+}
+
 int setup_client_struct(Client **client, int socket_fd) {
     // precondition for invalid arguments
     if (client == NULL) {
@@ -927,16 +915,23 @@ int setup_client_struct(Client **client, int socket_fd) {
 
     // initialize struct memory
     *client = (Client *) malloc(sizeof(Client));
-    (*client)->buffer = (Buffer *) malloc(sizeof(Buffer));
-    reset_client_struct(*client);
+
+    // variable for clarity
+    Client *temp = *client;
+
+    // initialize inner struct
+    setup_buffer_struct(&(temp->buffer));
+
+    // ensure default values for struct
+    reset_client_struct(temp);
 
     // copy in values
-    if (socket_fd >= MIN_FD) (*client)->socket_fd = socket_fd;
+    if (socket_fd >= MIN_FD) temp->socket_fd = socket_fd;
 
     return 0;
 }
 
-int setup_packet_struct(Packet **packet, char *head, char *data) {
+int setup_packet_struct(Packet **packet, char *head, int head_len, char *data, int data_len, int inbuf) {
     // precondition for invalid arguments
     if (packet == NULL) {
         debug_print("setup_packet_struct: invalid arguments");
@@ -946,11 +941,21 @@ int setup_packet_struct(Packet **packet, char *head, char *data) {
     // initialize struct memory
     *packet = (Packet *) malloc(sizeof(Packet));
 
+    // variable for clarity
+    Packet *temp = *packet;
+
     // copy in header
-    if (head != NULL) memmove((*packet)->head, head, PACKET_LEN);
+    if (head != NULL) {
+        memmove(temp->head, head, head_len);
+    }
 
     // copy in data
-    if (data != NULL) memmove((*packet)->buf, data, TEXT_LEN);
+    if (data != NULL) {
+        memmove(temp->buf, data, data_len);
+    }
+
+    // set fields
+    temp->inbuf = inbuf;
 
     return 0;
 }
@@ -962,12 +967,18 @@ int reset_client_struct(Client *client) {
         return -1;
     }
 
-    // struct fields
+    // check field pointer isn't allocated
+    if (client->buffer == NULL) {
+        debug_print("reset_client_struct: client is malformed, aborting reset");
+        return -1;
+    }
+
+    // reset struct fields
     client->socket_fd = -1;
     client->inc_flag = 0;
     client->out_flag = 0;
 
-    // client buffer
+    // reset client buffer
     return reset_buffer_struct(client->buffer);
 }
 
@@ -978,6 +989,13 @@ int reset_buffer_struct(Buffer *buffer) {
         return -1;
     }
 
+    // check field pointer isn't allocated
+    if (buffer->buf == NULL) {
+        debug_print("reset_buffer_struct: buffer is malformed, aborting reset");
+        return -1;
+    }
+
+    // reset struct fields
     memset(buffer->buf, 0, TEXT_LEN);
     buffer->consumed = 0;
     buffer->inbuf = 0;
@@ -992,6 +1010,12 @@ int reset_packet_struct(Packet *pack) {
         return -1;
     }
 
+    // check field pointer isn't allocated
+    if (pack->head == NULL || pack->buf == NULL) {
+        debug_print("reset_packet_struct: buffer is malformed, aborting reset");
+        return -1;
+    }
+
     // reset struct fields
     memset(pack->head, 0, PACKET_LEN);
     memset(pack->buf, 0, TEXT_LEN);
@@ -1001,9 +1025,16 @@ int reset_packet_struct(Packet *pack) {
 }
 
 int destroy_client_struct(Client **client) {
+    // precondition for invalid arguments
     if (client == NULL) {
         debug_print("destroy_client_struct: invalid arguments");
         return -1;
+    }
+
+    // precondition for clean pointer
+    if (*client == NULL) {
+        debug_print("destroy_client_struct: target client is already destroyed");
+        return 0;
     }
 
     // variable for clarity

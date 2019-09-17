@@ -171,8 +171,6 @@ int read_header(Client *cli, char head[PACKET_LEN]);
 
 int parse_header(Client *cli, const char head[PACKET_LEN]);
 
-int parse_idle_header(Client *cli, const char head[PACKET_LEN]);
-
 int parse_long_header(Client *cli, const int control1);
 
 int parse_text(Client *cli, const int control1, const int control2);
@@ -240,6 +238,11 @@ void debug_print(const char *format, ...);
 int setup_client_struct(Client **client, int socket_fd);
 
 /*
+ * Initializes a pointer to a heap-allocated packet struct
+ */
+int setup_packet_struct(Packet **packet, char *head, int head_len, char *data, int data_len, int inbuf);
+
+/*
  * Zeroes out all the fields of a given client
  */
 int reset_client_struct(Client *client);
@@ -254,6 +257,10 @@ int reset_buffer_struct(Buffer *buffer);
  */
 int reset_packet_struct(Packet *pack);
 
+/*
+ * Dereferences and frees memory contained by the client struct, centralizing cleaning up client connections.
+ * Function is given a double pointer to allow freeing
+ */
 int destroy_client_struct(Client **client);
 
 #endif

@@ -56,4 +56,7 @@ dkms.conf
 
 # CMake build output
 /cmake-build-debug/
+/cmake-build-debug-mingw/
+/cmake-build-debug-wsl/
+/cmake-build-default-wsl/
 /cmake-build-release-wsl/
