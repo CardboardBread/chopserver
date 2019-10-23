@@ -66,9 +66,8 @@ static const char recieve_len_header[] = "[CLIENT %d] \"%.*s\"\n";
  */
 
 struct pipe_t {
-  int fds[2];
-  int read = fds[0];
-  int write = fds[1];
+  int read;
+  int write;
 };
 
 struct buffer {
@@ -88,8 +87,9 @@ struct packet {
 
 struct server {
   int server_fd;
-  struct client *clients;
+  struct client **clients; // array of client pointers
   int max_connections;
+  int cur_connections;
 };
 
 struct client {
@@ -99,5 +99,29 @@ struct client {
   char out_flag;
   struct buffer buf;
 };
+
+/*
+ * Structure Management Functions
+ */
+
+int init_pipe_struct(struct pipe_t **target);
+
+int init_buffer_struct(struct buffer **target, const int size);
+
+int init_packet_struct(struct packet **target);
+
+int init_server_struct(struct server **target, const int max_conns);
+
+int init_client_struct(struct client **target, const int size);
+
+int destroy_pipe_struct(struct pipe_t **target);
+
+int destroy_buffer_struct(struct buffer **target);
+
+int destroy_packet_struct(struct packet **target);
+
+int destroy_server_struct(struct server **target);
+
+int destroy_client_struct(struct client **target);
 
 #endif

@@ -15,14 +15,14 @@
 int init_server_addr(struct sockaddr_in **addr, const int port) {
   // check valid arguments
   if (addr == NULL || port < 0) {
-    DEBUG_PRINT("arguments");
+    DEBUG_PRINT("invalid arguments");
     return 1;
   }
 
   // allocate struct memory, catch ENOMEM
   *addr = malloc(sizeof(struct sockaddr_in));
   if (addr == NULL) {
-    DEBUG_PRINT("malloc");
+    DEBUG_PRINT("malloc fail");
     return 1;
   }
 
@@ -43,13 +43,13 @@ int init_server_addr(struct sockaddr_in **addr, const int port) {
 int setup_server_socket(struct sockaddr_in *self, int *socket, const int num_queue) {
   // check valid arguments
   if (self == NULL || socket == NULL || num_queue < 1) {
-    DEBUG_PRINT("arguments");
+    DEBUG_PRINT("invalid arguments");
     return 1;
   }
 
   int soc = socket(PF_INET, SOCK_STREAM, 0);
   if (soc < 0) {
-    DEBUG_PRINT("socket");
+    DEBUG_PRINT("socket fail");
     return 1;
   }
 
@@ -58,21 +58,21 @@ int setup_server_socket(struct sockaddr_in *self, int *socket, const int num_que
   int on = 1;
   int status = setsockopt(soc, SOL_SOCKET, SO_REUSEADDR, (const char *) &on, sizeof(on));
   if (status < 0) {
-    DEBUG_PRINT("setsockopt");
+    DEBUG_PRINT("setsockopt fail");
     return 1;
   }
 
   // Associate the process with the address and a port
   if (bind(soc, (struct sockaddr *) self, sizeof(*self)) < 0) {
     // bind failed; could be because port is in use.
-    DEBUG_PRINT("bind");
+    DEBUG_PRINT("bind fail");
     return 1;
   }
 
   // Set up a queue in the kernel to hold pending connections.
   if (listen(soc, num_queue) < 0) {
     // listen failed
-    DEBUG_PRINT("listen");
+    DEBUG_PRINT("listen fail");
     return 1;
   }
 
@@ -86,10 +86,10 @@ int setup_server_socket(struct sockaddr_in *self, int *socket, const int num_que
  * Wait for and accept a new connection.
  * Return -1 if the accept call failed.
  */
-int accept_connection(int listenfd, int *newfd) {
+int accept_connection(const int listenfd, int *newfd) {
   // check valid arguments
   if (listenfd < MIN_FD || newfd == NULL) {
-    DEBUG_PRINT("arguments");
+    DEBUG_PRINT("invalid arguments");
     return 1;
   }
 
@@ -99,7 +99,7 @@ int accept_connection(int listenfd, int *newfd) {
 
   int client_socket = accept(listenfd, (struct sockaddr *) &peer, &peer_len);
   if (client_socket < 0) {
-    DEBUG_PRINT("accept");
+    DEBUG_PRINT("accept fail");
     return 1;
   }
 
@@ -119,7 +119,7 @@ int connect_to_server(const char *hostname, const int port, int *socket) {
 
   int soc = socket(PF_INET, SOCK_STREAM, 0);
   if (soc < 0) {
-    DEBUG_PRINT("socket");
+    DEBUG_PRINT("socket fail");
     return 1;
   }
   struct sockaddr_in addr;
@@ -140,7 +140,7 @@ int connect_to_server(const char *hostname, const int port, int *socket) {
 
   // Request connection to server.
   if (connect(soc, (struct sockaddr *) &addr, sizeof(addr)) == -1) {
-    DEBUG_PRINT("connect");
+    DEBUG_PRINT("connect fail");
     return 1;
   }
 

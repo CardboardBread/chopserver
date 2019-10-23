@@ -1,8 +1,14 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <errno.h>
+#include <string.h>
+
 #include "chopdebug.h"
 
 // errno is preserved through this function,
 // it will not change between this function calling and returning.
-void debug_print(const char *format, const char *function, ...) {
+void debug_print(const char *function, const char *format, ...) {
   // check valid arguments
   if (format == NULL) {
     return;
