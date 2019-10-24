@@ -13,9 +13,9 @@
 #include "chopsocket.h"
 #include "chopdata.h"
 
-int accept_new_client(struct server *receiver, int bufsize, int *newfd) {
+int accept_new_client(struct server *receiver, int *newfd, const int bufsize) {
   // precondition for invalid arguments
-  if (receiver == NULL) {
+  if (receiver == NULL || bufsize < 1) {
     DEBUG_PRINT("invalid arguments");
     return 1;
   }
@@ -26,9 +26,7 @@ int accept_new_client(struct server *receiver, int bufsize, int *newfd) {
     DEBUG_PRINT("accept fail");
     return 1;
   }
-
-  DEBUG_PRINT("new client on %d", client_fd);
-  server->cur_connections++;
+  DEBUG_PRINT("new client on fd %d", client_fd);
 
   // finding an 'empty' space in the client array
   for (int i = 0; i < server->max_connections; i++) {
@@ -40,14 +38,20 @@ int accept_new_client(struct server *receiver, int bufsize, int *newfd) {
         break;
       }
 
+      // initialize new client
       struct client *new = server->clients[i];
       new->socket_fd = client_fd;
       new->server_fd = server->server_fd;
       new->inc_flag = 0;
       new->out_flag = 0;
 
-      DEBUG_PRINT("new client, index %d", i);
+      // track new client
+      server->cur_connections++;
+
+      // return new fd
       if (newfd != NULL) *newfd = client_fd;
+
+      DEBUG_PRINT("new client, index %d", i);
       return 0;
     }
   }
@@ -58,62 +62,75 @@ int accept_new_client(struct server *receiver, int bufsize, int *newfd) {
   return 1;
 }
 
-int establish_server_connection(const char *address, const int port, Client **client) {
-    // precondition for invalid arguments
-    if (client == NULL || port < 0 || address == NULL) {
-        debug_print("establish_server_connection: invalid arguments");
-        return -1;
-    }
+int establish_server_connection(const char *address, const int port, struct client **dest, const int bufsize) {
+  // precondition for invalid arguments
+  if (address == NULL || port < 0 || client == NULL || bufsize < 1) {
+    DEBUG_PRINT("invalid arguments");
+    return 1;
+  }
 
-    // connect to server
-    int fd = connect_to_server(port, address);
-    if (fd < MIN_FD) {
-        debug_print("establish_server_connection: failed to connect to server at %s:%d", address, port);
-        return -1;
-    }
-    debug_print("establish_server_connection: connected to server at %s:%d", address, port);
+  // connect to server
+  int fd;
+  if (connect_to_server(port, address, &fd) > 0) {
+    DEBUG_PRINT("failed connect to %s:%d", address, port);
+    return 1;
+  }
+  DEBUG_PRINT("connected to %s:%d", address, port);
 
-    // store fd in client struct
-    if (setup_client_struct(client, fd) < 0) {
-        debug_print("establish_server_connection: failed to store server connection, closing connection");
-        close(fd);
-        return -1;
-    }
-    debug_print("establish_server_connection: server connection successful");
+  // make new client struct
+  if (init_client_struct(dest, bufsize) > 0) {
+    DEBUG_PRINT("failed to store connection, closing");
+    close(fd);
+    return 1;
+  }
 
-    return fd;
+  // initialize client struct
+  struct client *new = *dest;
+  new->socket_fd = fd;
+  new->server_fd = -1;
+  new->inc_flag = 0;
+  new->out_flag = 0;
+
+  DEBUG_PRINT("connection successful");
+  return 0;
 }
 
-int remove_client_index(const int client_index, Client *clients[]) {
+int remove_client_index(const int client_index, struct server *host) {
     // precondition for invalid arguments
-    if (client_index < MIN_FD) {
-        debug_print("remove_client_index: invalid arguments");
-        return -1;
+    if (client_index < MIN_FD || host == NULL) {
+        DEBUG_PRINT("invalid arguments");
+        return 1;
     }
 
     // no client at index
-    if (clients[client_index] == NULL) {
-        debug_print("remove_client_index: target index %d has no client", client_index);
+    if (host->clients[client_index] == NULL) {
+        DEBUG_PRINT("target index %d empty", client_index);
         return 1;
     }
-    debug_print("remove_client_index: removing client at index %d", client_index);
 
-    return destroy_client_struct(&(clients[client_index]));
+    // destroy client
+    if (destroy_client_struct(host->clients + client_index) > 0) {
+      DEBUG_PRINT("failed client destruct");
+      return 1;
+    }
+
+    DEBUG_PRINT("removed client at index %d", client_index);
+    return 0;
 }
 
-int remove_client_address(const int client_index, Client **client) {
+int remove_client_address(const int client_index, struct server *host) {
     // precondition for invalid arguments
     if (client_index < MIN_FD || client == NULL) {
-        debug_print("remove_client_address: invalid arguments");
-        return -1;
+        DEBUG_PRINT("invalid arguments");
+        return 1;
     }
 
     // no client at pointer
     if (*client == NULL) {
-        debug_print("remove_client_address: target address has no client");
+        DEBUG_PRINT("remove_client_address: target address has no client");
         return 1;
     }
-    debug_print("remove_client_address: removing client at %p", *client);
+    DEBUG_PRINT("remove_client_address: removing client at %p", *client);
 
     return destroy_client_struct(client);
 }

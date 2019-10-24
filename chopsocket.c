@@ -98,7 +98,7 @@ int accept_connection(const int listenfd, int *newfd) {
   peer.sin_family = PF_INET;
 
   int client_socket = accept(listenfd, (struct sockaddr *) &peer, &peer_len);
-  if (client_socket < 0) {
+  if (client_socket < MIN_FD) {
     DEBUG_PRINT("accept fail");
     return 1;
   }

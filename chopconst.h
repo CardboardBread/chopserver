@@ -55,9 +55,6 @@
  * Constants
  */
 
-static const int debug_fd = STDERR_FILENO;
-static const char debug_header[] = "[DEBUG] ";
-
 static const char recieve_header[] = "[CLIENT %d] \"%s\"\n";
 static const char recieve_len_header[] = "[CLIENT %d] \"%.*s\"\n";
 
