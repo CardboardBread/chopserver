@@ -118,28 +118,34 @@ int remove_client_index(const int client_index, struct server *host) {
     return 0;
 }
 
-int remove_client_address(const int client_index, struct server *host) {
+int remove_client_address(const int client_index, struct client **target) {
     // precondition for invalid arguments
-    if (client_index < MIN_FD || client == NULL) {
+    if (client_index < MIN_FD || target == NULL) {
         DEBUG_PRINT("invalid arguments");
         return 1;
     }
 
     // no client at pointer
-    if (*client == NULL) {
-        DEBUG_PRINT("remove_client_address: target address has no client");
+    if (*target == NULL) {
+        DEBUG_PRINT("target is empty");
         return 1;
     }
-    DEBUG_PRINT("remove_client_address: removing client at %p", *client);
 
-    return destroy_client_struct(client);
+    // destroy client
+    if (destroy_client_struct(target) > 0) {
+      DEBUG_PRINT("failed client destruct");
+      return 1;
+    }
+
+    DEBUG_PRINT("removed client at arbitrary address");
+    return 0;
 }
 
-int process_request(Client *cli, fd_set *all_fds) {
+int process_request(struct client *cli, fd_set *all_fds) {
     // precondition for invalid arguments
     if (cli == NULL || all_fds == NULL) {
-        debug_print("process_request: invalid arguments");
-        return -1;
+        DEBUG_PRINT("invalid arguments");
+        return 1;
     }
 
     int status = 0;
@@ -163,17 +169,17 @@ int process_request(Client *cli, fd_set *all_fds) {
     return status;
 }
 
-int send_str_to_all(Client *clients[], const char *str) {
+int send_str_to_all(struct server *host, const char *str) {
     // precondition for invalid arguments
-    if (clients == NULL || str == NULL) {
-        debug_print("send_str_to_all: invalid arguments");
-        return -1;
+    if (host == NULL || str == NULL) {
+        debug_print("invalid arguments");
+        return 1;
     }
 
     // iterate through all available clients, stopping if any fail
     int status;
-    for (int i = 0; i < MAX_CONNECTIONS; i++) {
-        if (clients[i] != NULL) {
+    for (int i = 0; i < host->max_connections; i++) {
+        if (host->clients[i] != NULL) {
             status = send_str_to_client(clients[i], str);
             if (status) return status;
         }
@@ -213,34 +219,40 @@ int send_fstr_to_all(Client *clients[], const char *format, ...) {
  * Sending functions
  */
 
-int write_buf_to_client(Client *cli, const char *msg, const int msg_len) {
+int write_buf_to_client(struct client *cli, const char *msg, const int msg_len) {
     // precondition for invalid arguments
     if (cli == NULL || msg == NULL || msg_len < 0) {
-        debug_print("write_buf_to_client: invalid arguments");
-        return -1;
+        DEBUG_PRINT("invalid arguments");
+        return 1;
     }
 
     // check if message is nonexistent
     if (msg_len == 0) {
-        debug_print("write_buf_to_client: message is empty");
+        DEBUG_PRINT("empty message");
         return 0;
     }
 
     // check if message is too long
-    if (msg_len > TEXT_LEN) {
+    /*if (msg_len > cli->buf.) {
         debug_print("write_buf_to_client: message is too long");
         return 1;
-    }
+    }*/
 
     // initialize packet for buffer
-    Packet pack;
-    reset_packet_struct(&pack);
+    struct packet *pack;
+    if (init_packet_struct(&pack) > 0) {
+      DEBUG_PRINT("failed init packet");
+      return 1;
+    }
 
     // assemble packet header with text signal
-    char header[PACKET_LEN] = {0};
-    header[PACKET_STATUS] = START_TEXT;
-    header[PACKET_CONTROL1] = 1;
-    header[PACKET_CONTROL2] = msg_len;
+    pack->head = 0;
+    pack->status = START_TEXT;
+    pack->control1 = 1;
+    pack->control2 = msg_len;
+
+    pack->data = msg;
+    pack->datalen = msg_len;
 
     // assemble packet
     assemble_packet(&pack, header, msg, msg_len);

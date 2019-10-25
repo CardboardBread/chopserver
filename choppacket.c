@@ -495,3 +495,11 @@ int parse_escape(Client *cli) {
 
      return 0;
  }
+
+ int assemble_header(struct packet *pack, int head, int status, int control1, int control2) {
+   if (pack == NULL || head < 0 || status < 0 || control1 < 0 || control2 < 0) {
+     DEBUG_PRINT("invalid arguments");
+     return 1;
+   }
+ }
+ int assemble_body(struct packet *pack);
