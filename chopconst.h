@@ -5,7 +5,7 @@
  * Macros
  */
 
-#define PACKET_LEN 4
+#define HEADER_LEN 4
 #define TEXT_LEN 255
 
 /// Header Packet bytes
@@ -23,7 +23,10 @@
 #define END_TEXT 3 // used in conjuction with variable length START_TEXT
 #define END_TRANSMISSION 4 // TODO
 #define ENQUIRY 5 // basically a ping
-// control signal 1 can indicate the length of a package, WIP a timestamp
+  #define ENQUIRY_NORMAL 0 // just acknowledge
+  #define ENQUIRY_RETURN 1 // return enquiry signal1=0
+  #define ENQUIRY_TIME 2 // sent time in data section
+  #define ENQUIRY_RTIME 3 // return time in data section
 #define ACKNOWLEDGE 6 // signal was received, control1 is recieved status
 #define WAKEUP 7 // wake sleeping connection
 
@@ -46,9 +49,6 @@
 #define RECORD_SEPARATOR 30 // TODO
 #define UNIT_SEPARATOR 31 // TODO
 
-#define CONNECTION_QUEUE 5
-#define MAX_CONNECTIONS 20
-
 #define MIN_FD 0
 
 /*
@@ -62,15 +62,11 @@ static const char recieve_len_header[] = "[CLIENT %d] \"%.*s\"\n";
  * Structures
  */
 
-struct pipe_t {
-  int read;
-  int write;
-};
-
 struct buffer {
   char *buf;
   int inbuf;
   int bufsize;
+  struct buffer *next;
 };
 
 struct packet {
@@ -78,7 +74,7 @@ struct packet {
   char status;
   char control1;
   char control2;
-  char *data;
+  struct buffer *data;
   int datalen;
 };
 
@@ -90,12 +86,18 @@ struct server {
 };
 
 struct client {
-  int socket_fd;
-  int server_fd;
-  char inc_flag;
-  char out_flag;
-  struct buffer buf;
+  int socket_fd; // fd of the client
+  int server_fd; // fd of the server this client is attached to, -1 if client
+  char inc_flag; // what the client is receiving
+  char out_flag; // what the client is sending
+  int window; // how much data the client can pass at once
 };
+
+/*
+ * Structure-Relevant Macros
+ */
+
+#define HEADER_LEN sizeof(struct packet) - sizeof(struct buffer);
 
 /*
  * Structure Management Functions

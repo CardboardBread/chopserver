@@ -1,6 +1,8 @@
 #ifndef __CHOPDATA_H__
 #define __CHOPDATA_H__
 
+#include "chopconst.h"
+
 int read_to_buf(struct buffer *buffer, const int input, int *received);
 
 int find_newline(char *str, const int len, int *location);

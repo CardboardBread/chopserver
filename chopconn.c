@@ -1,17 +1,18 @@
-//#include <stdio.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-//#include <string.h>
-//#include <errno.h>
-//#include <sys/stat.h>
-//#include <sys/types.h>
-//#include <signal.h>
-//#include <stdarg.h>
+#include <string.h>
+#include <stdarg.h>
+#include <sys/select.h>
 
 #include "chopconst.h"
 #include "chopdebug.h"
 #include "chopsocket.h"
 #include "chopdata.h"
+
+/*
+ * Client/Server Management functions
+ */
 
 int accept_new_client(struct server *receiver, int *newfd, const int bufsize) {
   // precondition for invalid arguments
@@ -121,14 +122,14 @@ int remove_client_index(const int client_index, struct server *host) {
 int remove_client_address(const int client_index, struct client **target) {
     // precondition for invalid arguments
     if (client_index < MIN_FD || target == NULL) {
-        DEBUG_PRINT("invalid arguments");
-        return 1;
+      DEBUG_PRINT("invalid arguments");
+      return 1;
     }
 
     // no client at pointer
     if (*target == NULL) {
-        DEBUG_PRINT("target is empty");
-        return 1;
+      DEBUG_PRINT("target is empty");
+      return 1;
     }
 
     // destroy client
@@ -148,31 +149,42 @@ int process_request(struct client *cli, fd_set *all_fds) {
         return 1;
     }
 
+    // init packet for recieving
+    struct packet *pack;
+    if (init_packet_struct(pack) > 0) {
+      DEBUG_PRINT("failed packet init");
+      return 1;
+    }
+
     int status = 0;
-    char header[PACKET_LEN] = {0};
     switch (cli->inc_flag) {
-        case NULL_BYTE:
-            debug_print("process_request: client is flagged for normal reading operation.");
-            status = read_header(cli, header);
-            if (status) {
-                break;
-            }
-            status = parse_header(cli, header);
-            break;
-        case CANCEL:
-            debug_print("process_request: client flagged as closed, refusing to read");
-            break;
-        default:
-            break;
+      case NULL_BYTE:
+        DEBUG_PRINT("client normal flag");
+        status = read_header(cli, pack);
+        if (status) {
+          break;
+        }
+        status = parse_header(cli, pack);
+        break;
+      case CANCEL:
+        DEBUG_PRINT("client closed");
+        break;
+      default:
+        DEBUG_PRINT("invalid flag");
+        break;
     }
 
     return status;
 }
 
+/*
+ * Sending functions
+ */
+
 int send_str_to_all(struct server *host, const char *str) {
     // precondition for invalid arguments
     if (host == NULL || str == NULL) {
-        debug_print("invalid arguments");
+        DEBUG_PRINT("invalid arguments");
         return 1;
     }
 
@@ -180,44 +192,46 @@ int send_str_to_all(struct server *host, const char *str) {
     int status;
     for (int i = 0; i < host->max_connections; i++) {
         if (host->clients[i] != NULL) {
-            status = send_str_to_client(clients[i], str);
-            if (status) return status;
+          if (send_str_to_client(host->clients[i], str) > 0) {
+            DEBUG_PRINT("failed sending at %d", i);
+            return 1;
+          }
         }
     }
 
+    DEBUG_PRINT("str written to all");
     return 0;
 }
 
-int send_fstr_to_all(Client *clients[], const char *format, ...) {
+int send_fstr_to_all(struct server *host, const char *format, ...) {
     // precondition for invalid arguments
-    if (clients == NULL) {
-        debug_print("send_fstr_to_all: invalid arguments");
-        return -1;
+    if (host == NULL) {
+        DEBUG_PRINT("invalid arguments");
+        return 1;
     }
 
-    // buffer for assembling format string
-    char msg[TEXT_LEN + 1];
-
+    // get variable arguments
     va_list args;
     va_start(args, format);
-    vsnprintf(msg, TEXT_LEN, format, args);
-    va_end(args);
+    //vsnprintf(msg, TEXT_LEN, format, args);
 
     // iterate through all available clients, stopping if any fail
     int status;
-    for (int i = 0; i < MAX_CONNECTIONS; i++) {
-        if (clients[i] != NULL) {
-            status = send_str_to_client(clients[i], msg);
-            if (status) return status;
+    for (int i = 0; i < host->max_connections; i++) {
+        if (host->clients[i] != NULL) {
+            if (send_fstr_to_client(host->clients[i], format, args) > 0) {
+              DEBUG_PRINT("failed sending at %d", i);
+              return 1;
+            }
         }
     }
 
+    // close access to variable arguments
+    va_end(args);
+
+    DEBUG_PRINT("fstr written to all");
     return 0;
 }
-
-/*
- * Sending functions
- */
 
 int write_buf_to_client(struct client *cli, const char *msg, const int msg_len) {
     // precondition for invalid arguments
@@ -232,12 +246,6 @@ int write_buf_to_client(struct client *cli, const char *msg, const int msg_len) 
         return 0;
     }
 
-    // check if message is too long
-    /*if (msg_len > cli->buf.) {
-        debug_print("write_buf_to_client: message is too long");
-        return 1;
-    }*/
-
     // initialize packet for buffer
     struct packet *pack;
     if (init_packet_struct(&pack) > 0) {
@@ -246,97 +254,139 @@ int write_buf_to_client(struct client *cli, const char *msg, const int msg_len) 
     }
 
     // assemble packet header with text signal
-    pack->head = 0;
-    pack->status = START_TEXT;
-    pack->control1 = 1;
-    pack->control2 = msg_len;
+    if (assemble_header(pack, 0 , START_TEXT, 1, msg_len) > 0) {
+      DEBUG_PRINT("failed header assemble");
+      return 1;
+    }
 
-    pack->data = msg;
-    pack->datalen = msg_len;
+    // add new data section
+    struct buffer *buf;
+    if (append_buffer(pack, msg_len, &buf) > 0) {
+      DEBUG_PRINT("failed data expansion");
+      return 1;
+    }
 
-    // assemble packet
-    assemble_packet(&pack, header, msg, msg_len);
+    // allocate packet body
+    if (assemble_body(buf, msg, msg_len) > 0) {
+      DEBUG_PRINT("failed body assemble");
+      return 1;
+    }
 
-    return write_packet_to_client(cli, &pack);
+    // write to client
+    if (write_packet_to_client(cli, &pack) > 0) {
+      DEBUG_PRINT("failed write");
+      return 1;
+    }
+
+    // destroy allocated packet
+    if (destroy_packet_struct(&out) > 0) {
+      DEBUG_PRINT("failed packet destroy");
+      return 1;
+    }
+
+    DEBUG_PRINT("wrote %d byte buffer", msg_len);
+    return 0;
 }
 
-int send_str_to_client(Client *cli, const char *str) {
+int send_str_to_client(struct client *cli, const char *str) {
     // precondition for invalid arguments
     if (cli == NULL || str == NULL) {
-        debug_print("send_str_to_client: invalid arguments");
-        return -1;
+        DEBUG_PRINT("invalid arguments");
+        return 1;
     }
 
-    return write_buf_to_client(cli, str, strlen(str) + 1);
+    // delegate writing
+    if (write_buf_to_client(cli, str, strlen(str) + 1) > 0) {
+      DEBUG_PRINT("failed write");
+      return 1;
+    }
+
+    DEBUG_PRINT("str written");
+    return 0;
 }
 
-int send_fstr_to_client(Client *cli, const char *format, ...) {
+int send_fstr_to_client(struct client *cli, const char *format, ...) {
     // precondition for invalid argument
     if (cli == NULL) {
-        debug_print("send_fstr_to_client: invalid arguments");
-        return -1;
+        DEBUG_PRINT("invalid arguments");
+        return 1;
     }
 
-    // buffer for assembling format string
-    char msg[TEXT_LEN + 1];
+    // get length of assembled fstr
+    va_list uargs;
+    va_start(uargs, format);
+    int len = vdprintf(-1 ,format, args);
+    va_end(uargs);
 
+    // buffer for assembling format string
+    char msg[len + 1];
+
+    // assemble string into buffer
     va_list args;
     va_start(args, format);
-    vsnprintf(msg, TEXT_LEN, format, args);
+    vsnprintf(msg, strlen(format) * 2, format, args);
     va_end(args);
 
-    return write_buf_to_client(cli, msg, TEXT_LEN);
+    // delegate writing
+    if (write_buf_to_client(cli, msg, len + 1) > 0) {
+      DEBUG_PRINT("failed write");
+      return 1;
+    }
+
+    DEBUG_PRINT("fstr written");
+    return 0;
 }
 
 /*
  * Client Utility Functions
  */
 
- int is_client_status(Client *cli, const int status) {
+ int is_client_status(struct client *cli, const int status) {
      // precondition for invalid arguments
      if (cli == NULL || status < 0) {
-         debug_print("is_client_status: invalid arguments");
-         return 0;
+         DEBUG_PRINT("invalid arguments");
+         return 1 == 2;
      }
 
      return (cli->inc_flag == status && cli->out_flag == status);
  }
 
  int is_address(const char *str) {
-     if (str == NULL) {
-         debug_print("is_address: invalid arguments");
-         return -1;
-     }
-
-     // copy string to local buffer for tokenizing
-     int cap = strlen(str);
-     char addr[cap + 1];
-     strcpy(addr, str);
-
-     // tokenize by the periods
-     long num;
-     char *ptr;
-     char *token;
-     char *rest = addr;
-     for (int i = 0; i < 4; i++) {
-         token = strtok_r(rest, ".", &rest);
-
-         // in case less than 4 tokens are available
-         if (token == NULL) {
-             debug_print("is_address: \"%s\" is not in address format", str);
-             return 0;
-         }
-
-         // convert token to number, check if valid as byte
-         num = strtol(token, &ptr, 10);
-         if (num < 0 || num > 255) {
-             debug_print("is_address: \"%s\" has an invalid value", str);
-             return 0;
-         }
-     }
-
-     debug_print("is_address: \"%s\" is a valid address", str);
+   // check valid argument
+   if (str == NULL) {
+     DEBUG_PRINT("invalid arguments");
      return 1;
+   }
+
+   // copy string to local buffer for tokenizing
+   int cap = strlen(str);
+   char addr[cap + 1];
+   strcpy(addr, str);
+
+   // tokenize by the periods
+   long num;
+   char *ptr;
+   char *token;
+   char *rest = addr;
+   for (int i = 0; i < 4; i++) {
+     token = strtok_r(rest, ".", &rest);
+
+     // in case less than 4 tokens are available
+     if (token == NULL) {
+       DEBUG_PRINT("\"%s\" is not in address format", str);
+       return 0;
+     }
+
+     // convert token to number, check if valid as byte
+     num = strtol(token, &ptr, 10);
+     if (num < 0 || num > 255) {
+       DEBUG_PRINT("\"%s\" has an invalid value", str);
+       return 0;
+     }
+   }
+
+   DEBUG_PRINT("\"%s\" is a valid address", str);
+   return 1;
  }
 
  int is_name(const char *str);
