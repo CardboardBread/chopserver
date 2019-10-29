@@ -21,7 +21,7 @@ int parse_long_header(struct client *cli, struct packet *pack);
 
 int parse_text(struct client *cli, struct packet *pack);
 
-char *read_long_text(Client *cli, int *len_ptr);
+char *read_long_text(struct client *cli, struct packet *pack, int *len_ptr, int *buffers);
 
 int parse_enquiry(struct client *cli, struct packet *pack);
 
@@ -53,6 +53,6 @@ int packet_style(struct packet *pack);
 
 int print_text(struct client *client, struct packet *pack);
 
-int print_time(struct client *client, struct packet *pack)
+int print_time(struct client *client, struct packet *pack);
 
 #endif

@@ -103,8 +103,6 @@ struct client {
  * Structure Management Functions
  */
 
-int init_pipe_struct(struct pipe_t **target);
-
 int init_buffer_struct(struct buffer **target, const int size);
 
 int init_packet_struct(struct packet **target);
@@ -112,8 +110,6 @@ int init_packet_struct(struct packet **target);
 int init_server_struct(struct server **target, const int max_conns);
 
 int init_client_struct(struct client **target, const int size);
-
-int destroy_pipe_struct(struct pipe_t **target);
 
 int destroy_buffer_struct(struct buffer **target);
 

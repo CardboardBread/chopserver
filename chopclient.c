@@ -26,12 +26,19 @@ struct client *server_connection;
 void sigint_handler(int code);
 
 void sigint_handler(int code) {
-    DEBUG_PRINT("sigint_handler: received SIGINT, setting flag");
+    DEBUG_PRINT("received SIGINT, setting flag");
     sigint_received = 1;
 }
 
 int main(void) {
-  init_client_struct(&server_connection);
+  // Reset SIGINT received flag.
+  sigint_received = 0;
+  
+  // init connection model
+  if (init_client_struct(&server_connection) > 0) {
+    DEBUG_PRINT("failed socket alloc");
+    return 1;
+  }
 
   // connect to locally hosted server
   if (establish_server_connection(ADDRESS, PORT, &server_connection, BUFSIZE) > )) {
@@ -65,7 +72,10 @@ int main(void) {
 
     // reading from server
     if (FD_ISSET(server_connection->socket_fd, &listen_fds)) {
-      process_request(server_connection, &all_fds);
+      if (process_request(server_connection, &all_fds) > 0) {
+        DEBUG_PRINT("incoming");
+        return 1;
+      }
 
       // if escape
       if (is_client_status(server_connection, CANCEL)) {

@@ -797,9 +797,16 @@ int parse_escape(struct client *cli, struct packet *pack) {
      return 1;
    }
 
+   // make sure incoming packet is time packet
+   if (pack->status != ENQUIRY || pack->control1 != ENQUIRY_TIME) {
+     DEBUG_PRINT("invalid packet type");
+     return 1;
+   }
+
    // grab first buffer in packet, convert char * to time_t
    struct buffer *buf = pack->data;
-   time_t message = *((time_t *) buf->buf);
+   time_t *container = (time_t *) buf->buf;
+   time_t message = *container;
 
    // print time message
    printf("[CLIENT %d]: Reported Time \"%ld\"\n", client->socket_fd, message);

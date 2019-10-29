@@ -338,7 +338,7 @@ int send_fstr_to_client(struct client *cli, const char *format, ...) {
 }
 
 /*
- * Client Utility Functions
+ * Client/Server Utility Functions
  */
 
  int is_client_status(struct client *cli, const int status) {

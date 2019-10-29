@@ -106,7 +106,10 @@ int main(void) {
 
       // relies on short circuting
       if (client != NULL && FD_ISSET(client->socket_fd, &listen_fds)) {
-        process_request(client, &all_fds);
+        if (process_request(client, &all_fds) > 0) {
+          DEBUG_PRINT("failed process");
+          return 1;
+        }
 
         // if a client requested a cancel
         if (is_client_status(client, CANCEL)) {
