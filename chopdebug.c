@@ -8,7 +8,7 @@
 
 // errno is preserved through this function,
 // it will not change between this function calling and returning.
-void debug_print(const char *function, const char *format, ...) {
+void _debug_print(const char *function, const char *format, ...) {
   // check valid arguments
   if (format == NULL) {
     return;

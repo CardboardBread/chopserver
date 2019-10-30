@@ -6,8 +6,10 @@
 #include <stdarg.h>
 #include <errno.h>
 
-#include "socket.h"
-#include "chophelper.h"
+#include "chopconn.h"
+#include "choppacket.h"
+#include "chopdebug.h"
+#include "chopconst.h"
 
 #ifndef PORT
 #define PORT 50001
@@ -33,6 +35,7 @@ void sigint_handler(int code);
 
 void sigint_handler(int code) {
     DEBUG_PRINT("received SIGINT, setting flag");
+    _debug_print(__FUNCTION__, "received SIGINT, setting flag");
     sigint_received = 1;
 }
 

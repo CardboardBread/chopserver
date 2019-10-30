@@ -3,10 +3,10 @@ CFLAGS = -DPORT=$(PORT) -g -Wall -Werror
 
 all: chopserver chopclient timeserver
 
-chopserver: chopserver.o socket.o chophelper.o
+chopserver: chopserver.o chopconn.o choppacket.o chopdebug.o chopconst.o
 	gcc ${CFLAGS} -o $@ $^
 
-chopclient: chopclient.o socket.o chophelper.o
+chopclient: chopclient.o chopconn.o choppacket.o chopdebug.o chopconst.o
 	gcc ${CFLAGS} -o $@ $^
 
 timeserver: timeserver.o socket.o chophelper.o
@@ -16,4 +16,4 @@ timeserver: timeserver.o socket.o chophelper.o
 	gcc ${CFLAGS} -c $<
 
 clean:
-	rm -f *.o chopserver chopclient timeserver
+	rm -f *.o *.gch chopserver chopclient timeserver

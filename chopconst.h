@@ -2,11 +2,8 @@
 #define __CHOPCONST_H__
 
 /*
- * Macros
+ * Packet Macros
  */
-
-#define HEADER_LEN 4
-#define TEXT_LEN 255
 
 /// Header Packet bytes
 #define PACKET_HEAD 0 // currently no purpose
@@ -48,6 +45,10 @@
 #define GROUP_SEPARATOR 29 // TODO
 #define RECORD_SEPARATOR 30 // TODO
 #define UNIT_SEPARATOR 31 // TODO
+
+/*
+ * General Macros
+ */
 
 #define MIN_FD 0
 
