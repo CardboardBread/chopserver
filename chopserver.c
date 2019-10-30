@@ -10,6 +10,7 @@
 #include "choppacket.h"
 #include "chopdebug.h"
 #include "chopconst.h"
+#include "chopsocket.h"
 
 #ifndef PORT
 #define PORT 50001
@@ -71,7 +72,7 @@ int main(void) {
   DEBUG_PRINT("server listening on all interfaces");
 
   if (init_server_struct(&host, MAX_CONNECTIONS) > 0) {
-    DEBUG_PRINT("failed server struct init")
+    DEBUG_PRINT("failed server struct init");
     exit(1);
   }
   DEBUG_PRINT("server open on $d slots", MAX_CONNECTIONS);

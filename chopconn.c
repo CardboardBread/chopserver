@@ -9,6 +9,7 @@
 #include "chopdebug.h"
 #include "chopsocket.h"
 #include "chopdata.h"
+#include "choppacket.h"
 
 /*
  * Client/Server Management functions
@@ -23,31 +24,31 @@ int accept_new_client(struct server *receiver, int *newfd, const int bufsize) {
 
   // blocking until client connects
   int client_fd;
-  if (accept_connection(server->server_fd, client_fd) > 0) {
+  if (accept_connection(receiver->server_fd, &client_fd) > 0) {
     DEBUG_PRINT("accept fail");
     return 1;
   }
   DEBUG_PRINT("new client on fd %d", client_fd);
 
   // finding an 'empty' space in the client array
-  for (int i = 0; i < server->max_connections; i++) {
-    if (server->clients[i] == NULL) {
+  for (int i = 0; i < receiver->max_connections; i++) {
+    if (receiver->clients[i] == NULL) {
 
       // placing new client in empty space
-      if (init_client_struct(server->clients + i, bufsize) > 0) {
+      if (init_client_struct(receiver->clients + i, bufsize) > 0) {
         DEBUG_PRINT("init client fail");
         break;
       }
 
       // initialize new client
-      struct client *new = server->clients[i];
+      struct client *new = receiver->clients[i];
       new->socket_fd = client_fd;
-      new->server_fd = server->server_fd;
+      new->server_fd = receiver->server_fd;
       new->inc_flag = 0;
       new->out_flag = 0;
 
       // track new client
-      server->cur_connections++;
+      receiver->cur_connections++;
 
       // return new fd
       if (newfd != NULL) *newfd = client_fd;
@@ -65,14 +66,14 @@ int accept_new_client(struct server *receiver, int *newfd, const int bufsize) {
 
 int establish_server_connection(const char *address, const int port, struct client **dest, const int bufsize) {
   // precondition for invalid arguments
-  if (address == NULL || port < 0 || client == NULL || bufsize < 1) {
+  if (address == NULL || port < 0 || dest == NULL || bufsize < 1) {
     DEBUG_PRINT("invalid arguments");
     return 1;
   }
 
   // connect to server
   int fd;
-  if (connect_to_server(port, address, &fd) > 0) {
+  if (connect_to_server(address, port, &fd) > 0) {
     DEBUG_PRINT("failed connect to %s:%d", address, port);
     return 1;
   }
@@ -151,7 +152,7 @@ int process_request(struct client *cli, fd_set *all_fds) {
 
     // init packet for recieving
     struct packet *pack;
-    if (init_packet_struct(pack) > 0) {
+    if (init_packet_struct(&pack) > 0) {
       DEBUG_PRINT("failed packet init");
       return 1;
     }
@@ -181,6 +182,110 @@ int process_request(struct client *cli, fd_set *all_fds) {
  * Sending functions
  */
 
+int write_buf_to_client(struct client *cli, const char *msg, const int msg_len) {
+  // precondition for invalid arguments
+  if (cli == NULL || msg == NULL || msg_len < 0) {
+      DEBUG_PRINT("invalid arguments");
+      return 1;
+  }
+
+  // check if message is nonexistent
+  if (msg_len == 0) {
+      DEBUG_PRINT("empty message");
+      return 0;
+  }
+
+  // initialize packet for buffer
+  struct packet *pack;
+  if (init_packet_struct(&pack) > 0) {
+    DEBUG_PRINT("failed init packet");
+    return 1;
+  }
+
+  // assemble packet header with text signal
+  if (assemble_header(pack, 0 , START_TEXT, 1, msg_len) > 0) {
+    DEBUG_PRINT("failed header assemble");
+    return 1;
+  }
+
+  // add new data section
+  struct buffer *buf;
+  if (append_buffer(pack, msg_len, &buf) > 0) {
+    DEBUG_PRINT("failed data expansion");
+    return 1;
+  }
+
+  // allocate packet body
+  if (assemble_body(buf, msg, msg_len) > 0) {
+    DEBUG_PRINT("failed body assemble");
+    return 1;
+  }
+
+  // write to client
+  if (write_packet_to_client(cli, pack) > 0) {
+    DEBUG_PRINT("failed write");
+    return 1;
+  }
+
+  // destroy allocated packet
+  if (destroy_packet_struct(pack) > 0) {
+    DEBUG_PRINT("failed packet destroy");
+    return 1;
+  }
+
+  DEBUG_PRINT("wrote %d byte buffer", msg_len);
+  return 0;
+ }
+
+int send_str_to_client(struct client *cli, const char *str) {
+  // precondition for invalid arguments
+  if (cli == NULL || str == NULL) {
+      DEBUG_PRINT("invalid arguments");
+      return 1;
+  }
+
+  // delegate writing
+  if (write_buf_to_client(cli, str, strlen(str) + 1) > 0) {
+    DEBUG_PRINT("failed write");
+    return 1;
+  }
+
+  DEBUG_PRINT("str written");
+  return 0;
+ }
+
+int send_fstr_to_client(struct client *cli, const char *format, ...) {
+  // precondition for invalid argument
+  if (cli == NULL) {
+      DEBUG_PRINT("invalid arguments");
+      return 1;
+  }
+
+  // get length of assembled fstr
+  va_list uargs;
+  va_start(uargs, format);
+  int len = vdprintf(-1 ,format, uargs);
+  va_end(uargs);
+
+  // buffer for assembling format string
+  char msg[len + 1];
+
+  // assemble string into buffer
+  va_list args;
+  va_start(args, format);
+  vsnprintf(msg, strlen(format) * 2, format, args);
+  va_end(args);
+
+  // delegate writing
+  if (write_buf_to_client(cli, msg, len + 1) > 0) {
+    DEBUG_PRINT("failed write");
+    return 1;
+  }
+
+  DEBUG_PRINT("fstr written");
+  return 0;
+ }
+
 int send_str_to_all(struct server *host, const char *str) {
     // precondition for invalid arguments
     if (host == NULL || str == NULL) {
@@ -189,7 +294,6 @@ int send_str_to_all(struct server *host, const char *str) {
     }
 
     // iterate through all available clients, stopping if any fail
-    int status;
     for (int i = 0; i < host->max_connections; i++) {
         if (host->clients[i] != NULL) {
           if (send_str_to_client(host->clients[i], str) > 0) {
@@ -216,7 +320,6 @@ int send_fstr_to_all(struct server *host, const char *format, ...) {
     //vsnprintf(msg, TEXT_LEN, format, args);
 
     // iterate through all available clients, stopping if any fail
-    int status;
     for (int i = 0; i < host->max_connections; i++) {
         if (host->clients[i] != NULL) {
             if (send_fstr_to_client(host->clients[i], format, args) > 0) {
@@ -230,110 +333,6 @@ int send_fstr_to_all(struct server *host, const char *format, ...) {
     va_end(args);
 
     DEBUG_PRINT("fstr written to all");
-    return 0;
-}
-
-int write_buf_to_client(struct client *cli, const char *msg, const int msg_len) {
-    // precondition for invalid arguments
-    if (cli == NULL || msg == NULL || msg_len < 0) {
-        DEBUG_PRINT("invalid arguments");
-        return 1;
-    }
-
-    // check if message is nonexistent
-    if (msg_len == 0) {
-        DEBUG_PRINT("empty message");
-        return 0;
-    }
-
-    // initialize packet for buffer
-    struct packet *pack;
-    if (init_packet_struct(&pack) > 0) {
-      DEBUG_PRINT("failed init packet");
-      return 1;
-    }
-
-    // assemble packet header with text signal
-    if (assemble_header(pack, 0 , START_TEXT, 1, msg_len) > 0) {
-      DEBUG_PRINT("failed header assemble");
-      return 1;
-    }
-
-    // add new data section
-    struct buffer *buf;
-    if (append_buffer(pack, msg_len, &buf) > 0) {
-      DEBUG_PRINT("failed data expansion");
-      return 1;
-    }
-
-    // allocate packet body
-    if (assemble_body(buf, msg, msg_len) > 0) {
-      DEBUG_PRINT("failed body assemble");
-      return 1;
-    }
-
-    // write to client
-    if (write_packet_to_client(cli, &pack) > 0) {
-      DEBUG_PRINT("failed write");
-      return 1;
-    }
-
-    // destroy allocated packet
-    if (destroy_packet_struct(&out) > 0) {
-      DEBUG_PRINT("failed packet destroy");
-      return 1;
-    }
-
-    DEBUG_PRINT("wrote %d byte buffer", msg_len);
-    return 0;
-}
-
-int send_str_to_client(struct client *cli, const char *str) {
-    // precondition for invalid arguments
-    if (cli == NULL || str == NULL) {
-        DEBUG_PRINT("invalid arguments");
-        return 1;
-    }
-
-    // delegate writing
-    if (write_buf_to_client(cli, str, strlen(str) + 1) > 0) {
-      DEBUG_PRINT("failed write");
-      return 1;
-    }
-
-    DEBUG_PRINT("str written");
-    return 0;
-}
-
-int send_fstr_to_client(struct client *cli, const char *format, ...) {
-    // precondition for invalid argument
-    if (cli == NULL) {
-        DEBUG_PRINT("invalid arguments");
-        return 1;
-    }
-
-    // get length of assembled fstr
-    va_list uargs;
-    va_start(uargs, format);
-    int len = vdprintf(-1 ,format, args);
-    va_end(uargs);
-
-    // buffer for assembling format string
-    char msg[len + 1];
-
-    // assemble string into buffer
-    va_list args;
-    va_start(args, format);
-    vsnprintf(msg, strlen(format) * 2, format, args);
-    va_end(args);
-
-    // delegate writing
-    if (write_buf_to_client(cli, msg, len + 1) > 0) {
-      DEBUG_PRINT("failed write");
-      return 1;
-    }
-
-    DEBUG_PRINT("fstr written");
     return 0;
 }
 
