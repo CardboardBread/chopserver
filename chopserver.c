@@ -7,9 +7,10 @@
 #include <errno.h>
 
 #include "chopconn.h"
-#include "choppacket.h"
-#include "chopdebug.h"
 #include "chopconst.h"
+#include "chopdata.h"
+#include "chopdebug.h"
+#include "choppacket.h"
 #include "chopsocket.h"
 
 #ifndef PORT
@@ -35,9 +36,9 @@ struct server *host;
 void sigint_handler(int code);
 
 void sigint_handler(int code) {
-    DEBUG_PRINT("received SIGINT, setting flag");
-    _debug_print(__FUNCTION__, "received SIGINT, setting flag");
-    sigint_received = 1;
+  DEBUG_PRINT("received SIGINT, setting flag");
+  _debug_print(__FUNCTION__, "received SIGINT, setting flag");
+  sigint_received = 1;
 }
 
 int main(void) {
@@ -50,8 +51,8 @@ int main(void) {
   sigemptyset(&act1.sa_mask);
   act1.sa_flags = SA_RESTART; // ensures interrupted calls dont error out
   if (sigaction(SIGINT, &act1, NULL) < 0) {
-      DEBUG_PRINT("sigaction: error");
-      exit(1);
+    DEBUG_PRINT("sigaction: error");
+    exit(1);
   }
   DEBUG_PRINT("sigint_handler attached");
 

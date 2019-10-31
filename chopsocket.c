@@ -6,8 +6,8 @@
 #include <netdb.h>         /* gethostname */
 #include <sys/socket.h>
 
-#include "chopsocket.h"
 #include "chopdebug.h"
+#include "chopsocket.h"
 
 /*
  * Initialize a server address associated with the given port.

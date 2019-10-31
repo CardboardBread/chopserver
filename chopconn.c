@@ -5,11 +5,12 @@
 #include <stdarg.h>
 #include <sys/select.h>
 
+#include "chopconn.h"
 #include "chopconst.h"
-#include "chopdebug.h"
-#include "chopsocket.h"
 #include "chopdata.h"
+#include "chopdebug.h"
 #include "choppacket.h"
+#include "chopsocket.h"
 
 /*
  * Client/Server Management functions
@@ -228,7 +229,7 @@ int write_buf_to_client(struct client *cli, const char *msg, const int msg_len) 
   }
 
   // destroy allocated packet
-  if (destroy_packet_struct(pack) > 0) {
+  if (destroy_packet_struct(&pack) > 0) {
     DEBUG_PRINT("failed packet destroy");
     return 1;
   }

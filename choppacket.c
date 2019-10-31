@@ -5,6 +5,11 @@
 
 #include "chopconst.h"
 #include "chopdebug.h"
+#include "choppacket.h"
+
+/*
+ * Sending functions
+ */
 
 int write_packet_to_client(struct client *cli, struct packet *pack) {
   // precondition for invalid arguments
@@ -14,7 +19,7 @@ int write_packet_to_client(struct client *cli, struct packet *pack) {
   }
 
   // mark client outgoing flag with status
-  cli->out_flag = pack->status
+  cli->out_flag = pack->status;
 
   // assemble header for sending
   char header[] = {pack->head, pack->status, pack->control1, pack->control2};
@@ -112,7 +117,7 @@ int read_header(struct client *cli, struct packet *pack) {
   }
 
   // TODO: this is very platform dependent
-  DEBUG_PRINT("read header, style %d", packet_style(pack);
+  DEBUG_PRINT("read header, style %d", packet_style(pack));
   return 0;
 }
 
@@ -251,7 +256,7 @@ int parse_text(struct client *cli, struct packet *pack) {
   for (int i = 0; i < buffers; i++) {
 
     // allocate more space to hold data
-    if (append_buffer(cli, pack, &receive) > 0) {
+    if (append_buffer(pack, cli->window, &receive) > 0) {
       DEBUG_PRINT("fail allocate buffer %d", i);
       return 1;
     }

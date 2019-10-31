@@ -4,6 +4,10 @@
 #include "chopconst.h"
 #include "chopdebug.h"
 
+/*
+ * Structure Management Functions
+ */
+
 int init_buffer_struct(struct buffer **target, const int size) {
   // check valid argument
   if (target == NULL || size < 0) {

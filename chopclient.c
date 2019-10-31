@@ -5,9 +5,11 @@
 #include <errno.h>
 
 #include "chopconn.h"
-#include "choppacket.h"
-#include "chopdebug.h"
 #include "chopconst.h"
+#include "chopdata.h"
+#include "chopdebug.h"
+#include "choppacket.h"
+#include "chopsocket.h"
 
 #define BUFSIZE 255
 
@@ -26,14 +28,14 @@ struct client *server_connection;
 void sigint_handler(int code);
 
 void sigint_handler(int code) {
-    DEBUG_PRINT("received SIGINT, setting flag");
-    sigint_received = 1;
+  DEBUG_PRINT("received SIGINT, setting flag");
+  sigint_received = 1;
 }
 
 int main(void) {
   // Reset SIGINT received flag.
   sigint_received = 0;
-  
+
   // init connection model
   if (init_client_struct(&server_connection) > 0) {
     DEBUG_PRINT("failed socket alloc");

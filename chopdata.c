@@ -1,6 +1,7 @@
 #include <unistd.h>
 
 #include "chopconst.h"
+#include "chopdata.h"
 #include "chopdebug.h"
 
 int read_to_buf(struct buffer *buffer, const int input, int *received) {

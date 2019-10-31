@@ -98,7 +98,7 @@ struct client {
  * Structure-Relevant Macros
  */
 
-#define HEADER_LEN sizeof(struct packet) - sizeof(struct buffer);
+#define HEADER_LEN sizeof(struct packet) - sizeof(struct buffer)
 
 /*
  * Structure Management Functions
