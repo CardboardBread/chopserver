@@ -47,8 +47,6 @@ int assemble_body(struct buffer *buffer, const char *data, const int len);
 
 int append_buffer(struct packet *pack, const int bufsize, struct buffer **out);
 
-int extend_buffer(struct buffer *buffer, int additional);
-
 int packet_style(struct packet *pack);
 
 int print_text(struct client *client, struct packet *pack);

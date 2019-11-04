@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "chopconst.h"
@@ -70,7 +71,7 @@ int init_packet_struct(struct packet **target) {
 
 int init_server_struct(struct server **target, const int max_conns) {
   // check valid argument
-  if (target == NULL) {
+  if (target == NULL || max_conns < 1) {
     return 1;
   }
 
@@ -83,7 +84,7 @@ int init_server_struct(struct server **target, const int max_conns) {
 
   // allocate server client array
   struct client **mem = malloc(sizeof(struct client *) * max_conns);
-  if (mem == NULL) {
+  if (mem == NULL && max_conns > 0) { // in case zero clients allowed
     DEBUG_PRINT("malloc, memory");
     free(new);
     return 1;
@@ -93,6 +94,7 @@ int init_server_struct(struct server **target, const int max_conns) {
   new->server_fd = -1;
   new->clients = mem;
   new->max_connections = max_conns;
+  new->cur_connections = 0;
 
   // set given pointer to new struct
   *target = new;

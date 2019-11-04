@@ -1,6 +1,8 @@
 #ifndef __CHOPDEBUG_H__
 #define __CHOPDEBUG_H__
 
+#include <unistd.h>
+
 #define DEBUG 1 // TODO: remove this and place in makefile for compilation-time decision to debug
 
 static const int debug_fd = STDERR_FILENO;

@@ -1,9 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 #include <time.h>
 
 #include "chopconst.h"
+#include "chopdata.h"
 #include "chopdebug.h"
 #include "choppacket.h"
 
@@ -221,7 +223,7 @@ int parse_text(struct client *cli, struct packet *pack) {
 
   // signals set to unknown length read
   if (count == 0 && width == 0) {
-    int buffers;
+    int buffers = 0;
     int long_len;
     char *head = read_long_text(cli, pack, &long_len, &buffers);
     if (head == NULL) {
@@ -267,10 +269,10 @@ int parse_text(struct client *cli, struct packet *pack) {
     if (bytes_read != expected) {
 
       // in case read isn't perfect
-      if (head_read < 0) {
+      if (bytes_read < 0) {
         DEBUG_PRINT("failed data read");
         return 1;
-      } else if (head_read == 0) {
+      } else if (bytes_read == 0) {
         DEBUG_PRINT("socket closed");
         return 1;
       } else {
@@ -298,16 +300,15 @@ char *read_long_text(struct client *cli, struct packet *pack, int *len_ptr, int 
   // precondition for invalid arguments
   if (cli == NULL || pack == NULL || len_ptr == NULL || buffers == NULL) {
     DEBUG_PRINT("invalid arguments");
-    *len_ptr = -1;
     return NULL;
   }
 
   struct buffer *receive;
-  if (append_buffer(cli, pack, &receive) > 0) {
+  if (append_buffer(pack, cli->window, &receive) > 0) {
     *len_ptr = -1;
     return NULL;
   }
-  *buffers++;
+  *buffers = *buffers + 1;
 
   int bytes_read = read(cli->socket_fd, receive->buf, cli->window);
   if (bytes_read < 0) {
@@ -335,7 +336,7 @@ char *read_long_text(struct client *cli, struct packet *pack, int *len_ptr, int 
     ptr = malloc(bytes_read + sub_len);
 
     // move data from here in
-    memmove(ptr, buffer, bytes_read);
+    memmove(ptr, receive->buf, bytes_read);
 
     // move data from recursion in
     memmove(ptr + bytes_read, nptr, sub_len);
@@ -403,7 +404,7 @@ int parse_enquiry(struct client *cli, struct packet *pack) {
 
       // allocate data for time section
       if (append_buffer(out, sizeof(time_t), &buf) > 0) {
-        DEBUG_PRINT("failed data expansion")
+        DEBUG_PRINT("failed data expansion");
         return 1;
       }
 
@@ -708,7 +709,7 @@ int parse_escape(struct client *cli, struct packet *pack) {
 
  int append_buffer(struct packet *pack, const int bufsize, struct buffer **out) {
    // check valid argument
-   if (client == NULL || pack == NULL) {
+   if (pack == NULL || bufsize < 0) {
      DEBUG_PRINT("invalid arguments");
      return 1;
    }
@@ -739,33 +740,9 @@ int parse_escape(struct client *cli, struct packet *pack) {
    return 0;
  }
 
- int extend_buffer(struct buffer *buffer, int additional) {
-   // check valid arguments
-   if (client == NULL || additional < 0) {
-     DEBUG_PRINT("invalid arguments");
-     return 1;
-   }
-
-   // add new buffer structs onto the end of the existing buffer in client
-   // buffers are all of the same size
-   for (int i = 0; i < additional; i++) {
-
-     // append new buffer
-     if (init_buffer_struct(&(buffer->next), bufsize) > 0) {
-       DEBUG_PRINT("failed buffer extension o %d", i);
-       return 1;
-     }
-
-     // move target to new buffer
-     buffer = buffer->next;
-   }
-
-   return 0;
- }
-
  int packet_style(struct packet *pack) {
    // check valid argument
-   if (packet == NULL) {
+   if (pack == NULL) {
      DEBUG_PRINT("invalid arguments");
      return 0;
    }
