@@ -47,6 +47,7 @@ int accept_new_client(struct server *receiver, int *newfd, const int bufsize) {
       new->server_fd = receiver->server_fd;
       new->inc_flag = 0;
       new->out_flag = 0;
+      new->window = bufsize;
 
       // track new client
       receiver->cur_connections++;
@@ -93,6 +94,7 @@ int establish_server_connection(const char *address, const int port, struct clie
   new->server_fd = -1;
   new->inc_flag = 0;
   new->out_flag = 0;
+  new->window = bufsize;
 
   DEBUG_PRINT("connection successful");
   return 0;
@@ -160,19 +162,17 @@ int process_request(struct client *cli, fd_set *all_fds) {
 
     int status = 0;
     switch (cli->inc_flag) {
-      case NULL_BYTE:
-        DEBUG_PRINT("client normal flag");
+      case CANCEL:
+        DEBUG_PRINT("client closed");
+        // TODO: flush the fd and close the connection (this shouldn't need to happen)
+        //break;
+      default:
+        DEBUG_PRINT("client %d flag", cli->inc_flag);
         status = read_header(cli, pack);
         if (status) {
           break;
         }
         status = parse_header(cli, pack);
-        break;
-      case CANCEL:
-        DEBUG_PRINT("client closed");
-        break;
-      default:
-        DEBUG_PRINT("invalid flag");
         break;
     }
 

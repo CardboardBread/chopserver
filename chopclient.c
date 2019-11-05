@@ -37,22 +37,22 @@ int main(void) {
   sigint_received = 0;
 
   // init connection model
-  if (init_client_struct(&server_connection) > 0) {
+  if (init_client_struct(&server_connection, BUFSIZE) > 0) {
     DEBUG_PRINT("failed socket alloc");
     return 1;
   }
 
   // connect to locally hosted server
-  if (establish_server_connection(ADDRESS, PORT, &server_connection, BUFSIZE) > )) {
+  if (establish_server_connection(ADDRESS, PORT, &server_connection, BUFSIZE) > 0) {
     DEBUG_PRINT("failed connection");
     return 1;
   }
 
   // setup fd set for selecting
-  int max_fd = sock_fd;
+  int max_fd = server_connection->socket_fd;
   fd_set all_fds, listen_fds;
   FD_ZERO(&all_fds);
-  FD_SET(sock_fd, &all_fds);
+  FD_SET(server_connection->socket_fd, &all_fds);
   FD_SET(STDIN_FILENO, &all_fds);
 
   int run = 1;
@@ -75,7 +75,7 @@ int main(void) {
     // reading from server
     if (FD_ISSET(server_connection->socket_fd, &listen_fds)) {
       if (process_request(server_connection, &all_fds) > 0) {
-        DEBUG_PRINT("incoming");
+        DEBUG_PRINT("failed process");
         return 1;
       }
 
@@ -102,39 +102,58 @@ int main(void) {
         return 1;
       }
 
-      if (remove_newline(buffer, num_read) > 0) {
+      int loc;
+      if (remove_newline(buffer, num_read, &loc) > 0) {
         DEBUG_PRINT("buffer overflow");
         return 1;
       }
 
       // setting values of header
-      if (strcmp(buffer, "exit") == 0) {
-        if (assemble_header(out, 0 , ESCAPE, 0, 0) > 0) {
+      if (strcmp(buffer, "exit") == 0) { // exit
+        if (assemble_header(pack, 0, ESCAPE, 0, 0) > 0) {
           DEBUG_PRINT("failed header assemble");
           return 1;
         }
 
-      } else if (strcmp(buffer, "ping") == 0) {
-        if (assemble_header(out, 0 , ENQUIRY, 0, 0) > 0) {
+      } else if (strcmp(buffer, "ping") == 0) { // regular ping
+        if (assemble_header(pack, 0, ENQUIRY, ENQUIRY_NORMAL, 0) > 0) {
           DEBUG_PRINT("failed header assemble");
           return 1;
         }
 
-      } else if (strcmp(buffer, "sleep") == 0) {
-        if (assemble_header(out, 0 , IDLE, 0, 0) > 0) {
+      } else if (strcmp(buffer, "pingret") == 0) { // returning ping
+        if (assemble_header(pack, 0, ENQUIRY, ENQUIRY_RETURN, 0) > 0) {
           DEBUG_PRINT("failed header assemble");
           return 1;
         }
 
-      } else if (strcmp(buffer, "wake") == 0) {
-        if (assemble_header(out, 0 , WAKEUP, 0, 0) > 0) {
+      } else if (strcmp(buffer, "pingtime") == 0) { // sending time ping
+        if (assemble_header(pack, 0, ENQUIRY, ENQUIRY_TIME, 0) > 0) {
           DEBUG_PRINT("failed header assemble");
           return 1;
         }
 
-      } else {
+      } else if (strcmp(buffer, "pingtimeret") == 0) { // requesting time ping
+        if (assemble_header(pack, 0, ENQUIRY, ENQUIRY_RTIME, 0) > 0) {
+          DEBUG_PRINT("failed header assemble");
+          return 1;
+        }
+
+      } else if (strcmp(buffer, "sleep") == 0) { // sleep request
+        if (assemble_header(pack, 0, IDLE, 0, 0) > 0) {
+          DEBUG_PRINT("failed header assemble");
+          return 1;
+        }
+
+      } else if (strcmp(buffer, "wake") == 0) { // wake request
+        if (assemble_header(pack, 0, WAKEUP, 0, 0) > 0) {
+          DEBUG_PRINT("failed header assemble");
+          return 1;
+        }
+
+      } else { // send user input
         if (send_str_to_client(server_connection, buffer) > 0) {
-          DEBUG_PRINT("failed sending user input")
+          DEBUG_PRINT("failed sending user input");
           return 1;
         }
         continue;
@@ -142,13 +161,13 @@ int main(void) {
       }
 
       // write to client
-      if (write_packet_to_client(cli, out) > 0) {
+      if (write_packet_to_client(server_connection, pack) > 0) {
         DEBUG_PRINT("failed write");
         return 1;
       }
 
       // destroy allocated packet
-      if (destroy_packet_struct(&out) > 0) {
+      if (destroy_packet_struct(&pack) > 0) {
         DEBUG_PRINT("failed packet destroy");
         return 1;
       }

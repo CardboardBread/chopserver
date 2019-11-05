@@ -53,11 +53,19 @@
 #define MIN_FD 0
 
 /*
- * Constants
+ * Printing Constants
  */
 
-static const char recieve_header[] = "[CLIENT %d] \"%s\"\n";
-static const char recieve_len_header[] = "[CLIENT %d] \"%.*s\"\n";
+static const char msg_header = "[CLIENT %d]";
+
+static const char recv_text_start[] = ": \"";
+static const char recv_text_seg[] = "%.*s";
+static const char recv_text_end[] = "\"\n";
+
+static const char recv_ping_norm[] = "[PING]\n";
+static const char recv_ping_send[] = "[ECHO]\n";
+static const char recv_ping_time[] = "[TIMEPING]: \"%ld\"\n";
+static const char recv_ping_time_send[] = "[TIMEECHO]\n";
 
 /*
  * Structures
@@ -98,7 +106,8 @@ struct client {
  * Structure-Relevant Macros
  */
 
-#define HEADER_LEN sizeof(struct packet) - sizeof(struct buffer)
+#define HEADER_LEN sizeof(struct packet) - sizeof(struct buffer *) - sizeof(int)
+//#define HEADER_LEN 4
 
 /*
  * Structure Management Functions

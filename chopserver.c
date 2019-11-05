@@ -37,7 +37,6 @@ void sigint_handler(int code);
 
 void sigint_handler(int code) {
   DEBUG_PRINT("received SIGINT, setting flag");
-  _debug_print(__FUNCTION__, "received SIGINT, setting flag");
   sigint_received = 1;
 }
 
@@ -56,6 +55,12 @@ int main(void) {
   }
   DEBUG_PRINT("sigint_handler attached");
 
+  if (init_server_struct(&host, MAX_CONNECTIONS) > 0) {
+    DEBUG_PRINT("failed server struct init");
+    exit(1);
+  }
+  DEBUG_PRINT("server struct on %d slots", MAX_CONNECTIONS);
+
   // setup server address
   struct sockaddr_in *self;
   if (init_server_addr(&self, PORT) > 0) {
@@ -65,24 +70,17 @@ int main(void) {
   DEBUG_PRINT("addr init successful");
 
   // setup server socket
-  int sock_fd;
-  if (setup_server_socket(self, &sock_fd, CONNECTION_QUEUE) > 0) {
+  if (setup_server_socket(self, &(host->server_fd), CONNECTION_QUEUE) > 0) {
     DEBUG_PRINT("failed server socket init");
     exit(1);
   }
   DEBUG_PRINT("server listening on all interfaces");
 
-  if (init_server_struct(&host, MAX_CONNECTIONS) > 0) {
-    DEBUG_PRINT("failed server struct init");
-    exit(1);
-  }
-  DEBUG_PRINT("server open on $d slots", MAX_CONNECTIONS);
-
   // setup fd set for selecting
-  int max_fd = sock_fd;
+  int max_fd = host->server_fd;
   fd_set all_fds, listen_fds;
   FD_ZERO(&all_fds);
-  FD_SET(sock_fd, &all_fds);
+  FD_SET(host->server_fd, &all_fds);
 
   int run = 1;
   while (run) {
@@ -106,7 +104,7 @@ int main(void) {
     }
 
     // check all clients if they can read
-    for (int index = 0; index < MAX_CONNECTIONS; index++) {
+    for (int index = 0; index < host->max_connections; index++) {
       struct client *client = host->clients[index];
 
       // relies on short circuting
@@ -126,7 +124,7 @@ int main(void) {
     }
 
     // accept new client
-    if (FD_ISSET(sock_fd, &listen_fds)) {
+    if (FD_ISSET(host->server_fd, &listen_fds)) {
       int client_fd;
       if (accept_new_client(host, &client_fd, BUFSIZE) > 0) {
         DEBUG_PRINT("failed accept");

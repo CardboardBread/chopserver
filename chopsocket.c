@@ -6,6 +6,7 @@
 #include <netdb.h>         /* gethostname */
 #include <sys/socket.h>
 
+#include "chopconst.h"
 #include "chopdebug.h"
 #include "chopsocket.h"
 
@@ -40,9 +41,9 @@ int init_server_addr(struct sockaddr_in **addr, const int port) {
 /*
  * Create and setup a socket for a server to listen on.
  */
-int setup_server_socket(struct sockaddr_in *self, int *socket, const int num_queue) {
+int setup_server_socket(struct sockaddr_in *self, int *ret_socket, const int num_queue) {
   // check valid arguments
-  if (self == NULL || socket == NULL || num_queue < 1) {
+  if (self == NULL || ret_socket == NULL || num_queue < 1) {
     DEBUG_PRINT("invalid arguments");
     return 1;
   }
@@ -77,7 +78,7 @@ int setup_server_socket(struct sockaddr_in *self, int *socket, const int num_que
   }
 
   // store new socket in given address
-  *socket = soc;
+  *ret_socket = soc;
 
   return 0;
 }
@@ -111,9 +112,9 @@ int accept_connection(const int listenfd, int *newfd) {
 /*
  * Create a socket and connect to the server indicated by the port and hostname
  */
-int connect_to_server(const char *hostname, const int port, int *socket) {
+int connect_to_server(const char *hostname, const int port, int *ret_socket) {
   // check valid arguments
-  if (hostname == NULL || port < 0 || socket == NULL) {
+  if (hostname == NULL || port < 0 || ret_socket == NULL) {
     return 1;
   }
 
@@ -144,7 +145,8 @@ int connect_to_server(const char *hostname, const int port, int *socket) {
     return 1;
   }
 
-  *socket = soc;
+  // store new socket in given address
+  *ret_socket = soc;
 
   return 0;
 }

@@ -90,6 +90,11 @@ int init_server_struct(struct server **target, const int max_conns) {
     return 1;
   }
 
+  // set client array to empty
+  for (int i = 0; i < max_conns; i++) {
+    mem[i] = NULL;
+  }
+
   // initialize structure fields
   new->server_fd = -1;
   new->clients = mem;
@@ -201,6 +206,11 @@ int destroy_server_struct(struct server **target) {
   // direct reference to structure
   struct server *old = *target;
 
+  // close open channels
+  if (old->server_fd > MIN_FD) {
+    close(old->server_fd);
+  }
+
   // deallocate remaining clients
   for (int i = 0; i < old->max_connections; i++) {
     if (old->clients + i != NULL) {
@@ -235,8 +245,10 @@ int destroy_client_struct(struct client **target) {
   // direct reference to structure
   struct client *old = *target;
 
-  // deallocate data section
-  free(old->buf.buf);
+  // close open channels
+  if (old->socket_fd > MIN_FD) {
+    close(old->socket_fd);
+  }
 
   // deallocate structure
   free(old);

@@ -122,7 +122,7 @@ int remove_newline(char *buf, const int len, int *location) {
 
 int buf_contains_symbol(const char *buf, const int len, const char symbol, int *symbol_index) {
   // check valid arguments
-  if (buf == NULL || buf_len < 1) {
+  if (buf == NULL || len < 1) {
     DEBUG_PRINT("invalid arguments");
     return 1;
   }
