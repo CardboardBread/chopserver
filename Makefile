@@ -9,11 +9,8 @@ chopserver: chopserver.o chopconn.o chopconst.o chopdata.o chopdebug.o choppacke
 chopclient: chopclient.o chopconn.o chopconst.o chopdata.o chopdebug.o choppacket.o chopsocket.o
 	gcc ${CFLAGS} -o $@ $^
 
-timeserver: timeserver.o socket.o chophelper.o
-	gcc ${CFLAGS} -o $@ $^
-
 %.o: %.c
 	gcc ${CFLAGS} -c $<
 
 clean:
-	rm -f *.o *.gch chopserver chopclient timeserver
+	rm -f *.o *.gch chopserver chopclient
