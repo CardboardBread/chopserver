@@ -146,7 +146,7 @@ int parse_header(struct client *cli, struct packet *pack) {
     DEBUG_PRINT("received text header");
     status = parse_text(cli, pack);
 
-    // print incoming message
+    // print incoming text
     if (print_text(cli, pack) > 0) {
       DEBUG_PRINT("failed print");
       return 1;
@@ -167,26 +167,56 @@ int parse_header(struct client *cli, struct packet *pack) {
     case ACKNOWLEDGE:
     DEBUG_PRINT("received acknowledge header");
     status = parse_acknowledge(cli, pack);
+
+    // print incoming acknowledge
+    if (print_acknowledge(cli, pack) > 0) {
+      DEBUG_PRINT("failed print");
+      return 1;
+    }
     break;
 
     case WAKEUP:
     DEBUG_PRINT("received wakeup header");
     status = parse_wakeup(cli, pack);
+
+    // print incoming wakeup
+    if (print_wakeup(cli, pack) > 0) {
+      DEBUG_PRINT("failed print");
+      return 1;
+    }
     break;
 
     case NEG_ACKNOWLEDGE:
     DEBUG_PRINT("received negative acknowledge header");
     status = parse_neg_acknowledge(cli, pack);
+
+    // print incoming negative acknowledge
+    if (print_neg_acknowledge(cli, pack) > 0) {
+      DEBUG_PRINT("failed print");
+      return 1;
+    }
     break;
 
     case IDLE:
     DEBUG_PRINT("received idle header");
     status = parse_idle(cli, pack);
+
+    // print incoming idle
+    if (print_idle(cli, pack) > 0) {
+      DEBUG_PRINT("failed print");
+      return 1;
+    }
     break;
 
     case ESCAPE:
     DEBUG_PRINT("received escape header");
     status = parse_escape(cli, pack);
+
+    // print incoming escape
+    if (print_escape(cli, pack) > 0) {
+      DEBUG_PRINT("failed print");
+      return 1;
+    }
     break;
 
     default: // unsupported/invalid
@@ -786,63 +816,26 @@ int print_enquiry(struct client *client, struct packet *pack) {
 
   switch(pack->control1) {
     case ENQUIRY_NORMAL:
-      printf(msg_header, client->socket_fd);
-      printf(recv_ping_norm);
-      break;
+    printf(msg_header, client->socket_fd);
+    printf(recv_ping_norm);
+    break;
+
     case ENQUIRY_RETURN:
-      printf(msg_header, client->socket_fd);
-      printf(recv_ping_send);
-      break;
+    printf(msg_header, client->socket_fd);
+    printf(recv_ping_send);
+    break;
+
     case ENQUIRY_TIME:
-      return print_time(client, pack);
-      break;
+    return print_time(client, pack);
+    break;
+
     case ENQUIRY_RTIME:
-      printf(msg_header, client->socket_fd);
-      printf(recv_ping_time_send);
-      break;
+    printf(msg_header, client->socket_fd);
+    printf(recv_ping_time_send);
+    break;
   }
 
   return 0;
-}
-
-int print_acknowledge(struct client *client, struct packet *pack) {
-  // check valid arguments
-  if (client == NULL || pack == NULL) {
-    DEBUG_PRINT("invalid arguments");
-    return 1;
-  }
-}
-
-int print_wakeup(struct client *client, struct packet *pack) {
-  // check valid arguments
-  if (client == NULL || pack == NULL) {
-    DEBUG_PRINT("invalid arguments");
-    return 1;
-  }
-}
-
-int print_neg_acknowledge(struct client *client, struct packet *pack) {
-  // check valid arguments
-  if (client == NULL || pack == NULL) {
-    DEBUG_PRINT("invalid arguments");
-    return 1;
-  }
-}
-
-int print_idle(struct client *client, struct packet *pack) {
-  // check valid arguments
-  if (client == NULL || pack == NULL) {
-    DEBUG_PRINT("invalid arguments");
-    return 1;
-  }
-}
-
-int print_escape(struct client *client, struct packet *pack) {
-  // check valid arguments
-  if (client == NULL || pack == NULL) {
-    DEBUG_PRINT("invalid arguments");
-    return 1;
-  }
 }
 
 int print_time(struct client *client, struct packet *pack) {
@@ -866,6 +859,56 @@ int print_time(struct client *client, struct packet *pack) {
   // print time message
   printf(msg_header, client->socket_fd);
   printf(recv_ping_time, message);
+
+  return 0;
+}
+
+int print_acknowledge(struct client *client, struct packet *pack) {
+  // check valid arguments
+  if (client == NULL || pack == NULL) {
+    DEBUG_PRINT("invalid arguments");
+    return 1;
+  }
+
+  return 0;
+}
+
+int print_wakeup(struct client *client, struct packet *pack) {
+  // check valid arguments
+  if (client == NULL || pack == NULL) {
+    DEBUG_PRINT("invalid arguments");
+    return 1;
+  }
+
+  return 0;
+}
+
+int print_neg_acknowledge(struct client *client, struct packet *pack) {
+  // check valid arguments
+  if (client == NULL || pack == NULL) {
+    DEBUG_PRINT("invalid arguments");
+    return 1;
+  }
+
+  return 0;
+}
+
+int print_idle(struct client *client, struct packet *pack) {
+  // check valid arguments
+  if (client == NULL || pack == NULL) {
+    DEBUG_PRINT("invalid arguments");
+    return 1;
+  }
+
+  return 0;
+}
+
+int print_escape(struct client *client, struct packet *pack) {
+  // check valid arguments
+  if (client == NULL || pack == NULL) {
+    DEBUG_PRINT("invalid arguments");
+    return 1;
+  }
 
   return 0;
 }

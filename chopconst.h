@@ -56,7 +56,7 @@
  * Printing Constants
  */
 
-static const char msg_header = "[CLIENT %d]";
+static const char msg_header[] = "[CLIENT %d]";
 
 static const char recv_text_start[] = ": \"";
 static const char recv_text_seg[] = "%.*s";

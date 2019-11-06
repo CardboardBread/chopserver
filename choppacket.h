@@ -51,6 +51,18 @@ int packet_style(struct packet *pack);
 
 int print_text(struct client *client, struct packet *pack);
 
+int print_enquiry(struct client *client, struct packet *pack);
+
 int print_time(struct client *client, struct packet *pack);
+
+int print_acknowledge(struct client *client, struct packet *pack);
+
+int print_wakeup(struct client *client, struct packet *pack);
+
+int print_neg_acknowledge(struct client *client, struct packet *pack);
+
+int print_idle(struct client *client, struct packet *pack);
+
+int print_escape(struct client *client, struct packet *pack);
 
 #endif
