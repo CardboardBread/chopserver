@@ -75,8 +75,7 @@ int main(void) {
     // reading from server
     if (FD_ISSET(server_connection->socket_fd, &listen_fds)) {
       if (process_request(server_connection, &all_fds) > 0) {
-        DEBUG_PRINT("failed process");
-        return 1;
+        return 1; // TODO: remove once failing a packet isn't really bad
       }
 
       // if escape

@@ -481,7 +481,6 @@ int parse_acknowledge(struct client *cli, struct packet *pack) {
     case ENQUIRY:
     // TODO: ping was received
     DEBUG_PRINT("ping confirmed");
-    printf("pong\n");
     break;
 
     case WAKEUP:

@@ -107,7 +107,6 @@ struct client {
  */
 
 #define HEADER_LEN sizeof(struct packet) - sizeof(struct buffer *) - sizeof(int)
-//#define HEADER_LEN 4
 
 /*
  * Structure Management Functions
