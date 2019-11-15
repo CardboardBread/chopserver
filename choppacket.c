@@ -133,97 +133,96 @@ int parse_header(struct client *cli, struct packet *pack) {
   int status;
   switch (pack->status) {
     case NULL_BYTE:
-    DEBUG_PRINT("received NULL header");
-    status = 0;
-    break;
+    	DEBUG_PRINT("received NULL header");
+    	status = 0;
+    	break;
 
     case START_HEADER:
-    DEBUG_PRINT("received extended header");
-    status = parse_long_header(cli, pack);
-    break;
+    	DEBUG_PRINT("received extended header");
+    	status = parse_long_header(cli, pack);
+    	break;
 
     case START_TEXT:
-    DEBUG_PRINT("received text header");
-    status = parse_text(cli, pack);
+    	DEBUG_PRINT("received text header");
+    	status = parse_text(cli, pack);
 
-    // print incoming text
-    if (print_text(cli, pack) > 0) {
-      DEBUG_PRINT("failed print");
-      return 1;
-    }
-    break;
+    	// print incoming text
+    	if (print_text(cli, pack) > 0) {
+      	DEBUG_PRINT("failed print");
+      	return 1;
+    	}
+    	break;
 
     case ENQUIRY:
-    DEBUG_PRINT("received enquiry header");
-    status = parse_enquiry(cli, pack);
+    	DEBUG_PRINT("received enquiry header");
+    	status = parse_enquiry(cli, pack);
 
-    // print incoming enquiry
-    if (print_enquiry(cli, pack) > 0) {
-      DEBUG_PRINT("failed print");
-      return 1;
-    }
-    break;
+    	// print incoming enquiry
+    	if (print_enquiry(cli, pack) > 0) {
+      	DEBUG_PRINT("failed print");
+      	return 1;
+    	}
+    	break;
 
     case ACKNOWLEDGE:
-    DEBUG_PRINT("received acknowledge header");
-    status = parse_acknowledge(cli, pack);
+    	DEBUG_PRINT("received acknowledge header");
+    	status = parse_acknowledge(cli, pack);
 
-    // print incoming acknowledge
-    if (print_acknowledge(cli, pack) > 0) {
-      DEBUG_PRINT("failed print");
-      return 1;
-    }
-    break;
+    	// print incoming acknowledge
+    	if (print_acknowledge(cli, pack) > 0) {
+      	DEBUG_PRINT("failed print");
+      	return 1;
+    	}
+    	break;
 
     case WAKEUP:
-    DEBUG_PRINT("received wakeup header");
-    status = parse_wakeup(cli, pack);
+    	DEBUG_PRINT("received wakeup header");
+    	status = parse_wakeup(cli, pack);
 
-    // print incoming wakeup
-    if (print_wakeup(cli, pack) > 0) {
-      DEBUG_PRINT("failed print");
-      return 1;
-    }
-    break;
+    	// print incoming wakeup
+    	if (print_wakeup(cli, pack) > 0) {
+      	DEBUG_PRINT("failed print");
+      	return 1;
+    	}
+    	break;
 
     case NEG_ACKNOWLEDGE:
-    DEBUG_PRINT("received negative acknowledge header");
-    status = parse_neg_acknowledge(cli, pack);
+    	DEBUG_PRINT("received negative acknowledge header");
+    	status = parse_neg_acknowledge(cli, pack);
 
-    // print incoming negative acknowledge
-    if (print_neg_acknowledge(cli, pack) > 0) {
-      DEBUG_PRINT("failed print");
-      return 1;
-    }
-    break;
+    	// print incoming negative acknowledge
+    	if (print_neg_acknowledge(cli, pack) > 0) {
+      	DEBUG_PRINT("failed print");
+      	return 1;
+    	}
+    	break;
 
     case IDLE:
-    DEBUG_PRINT("received idle header");
-    status = parse_idle(cli, pack);
+    	DEBUG_PRINT("received idle header");
+    	status = parse_idle(cli, pack);
 
-    // print incoming idle
-    if (print_idle(cli, pack) > 0) {
-      DEBUG_PRINT("failed print");
-      return 1;
-    }
-    break;
+    	// print incoming idle
+    	if (print_idle(cli, pack) > 0) {
+      	DEBUG_PRINT("failed print");
+      	return 1;
+    	}
+    	break;
 
     case ESCAPE:
-    DEBUG_PRINT("received escape header");
-    status = parse_escape(cli, pack);
+    	DEBUG_PRINT("received escape header");
+    	status = parse_escape(cli, pack);
 
-    // print incoming escape
-    if (print_escape(cli, pack) > 0) {
-      DEBUG_PRINT("failed print");
-      return 1;
-    }
-    break;
+    	// print incoming escape
+    	if (print_escape(cli, pack) > 0) {
+      	DEBUG_PRINT("failed print");
+      	return 1;
+    	}
+    	break;
 
     default: // unsupported/invalid
-    DEBUG_PRINT("received invalid header");
-    status = 1;
-    break;
-
+    	DEBUG_PRINT("received invalid header");
+    	status = 1;
+    	break;
   }
 
   return status;
@@ -278,51 +277,16 @@ int parse_text(struct client *cli, struct packet *pack) {
 
     DEBUG_PRINT("long text section length %d, %d segments", long_len, buffers);
     return 0;
-  }
+  } else {
 
-  // calculate how much data is incoming and how many buffers are required
-  // to hold all the data
-  int remaining = count * width;
-  int buffers = remaining / cli->window + ( remaining % cli->window != 0);
+		// read normally
+		int received;
+		int remaining = count * width;
+		if (read_data(cli, pack, remaining, &received) > 0) {
+			return 1;
+		}
+	}
 
-  // loop as many times as new buffers are needed
-  int total = 0;
-  int expected;
-  int bytes_read;
-  struct buffer *receive;
-  for (int i = 0; i < buffers; i++) {
-
-    // allocate more space to hold data
-    if (append_buffer(pack, cli->window, &receive) > 0) {
-      DEBUG_PRINT("fail allocate buffer %d", i);
-      return 1;
-    }
-
-    // read expected bytes per data segment
-    expected = (receive->bufsize > remaining) ? remaining : receive->bufsize;
-    bytes_read = read(cli->socket_fd, receive->buf, expected);
-    if (bytes_read != expected) {
-
-      // in case read isn't perfect
-      if (bytes_read < 0) {
-        DEBUG_PRINT("failed data read");
-        return 1;
-      } else if (bytes_read == 0) {
-        DEBUG_PRINT("socket closed");
-        return 1;
-      } else {
-        DEBUG_PRINT("incomplete data read");
-        return 1;
-      }
-    }
-
-    // update tracker fields
-    remaining -= bytes_read;
-    total += bytes_read;
-    receive->inbuf = bytes_read;
-  }
-
-  DEBUG_PRINT("text section length %d, %d segments", total, buffers);
   return 0;
 }
 
@@ -352,7 +316,7 @@ char *read_long_text(struct client *cli, struct packet *pack, int *len_ptr, int 
   int stop_len;
   if (buf_contains_symbol(receive->buf, bytes_read, END_TEXT, &stop_len) > 0) {
     // alloc heap to store the data
-    ptr = malloc(stop_len);
+    ptr = (char *) malloc(stop_len);
 
     // move data onto heap, notify parent fn of length of heap data
     memmove(ptr, receive->buf, stop_len);
@@ -363,7 +327,7 @@ char *read_long_text(struct client *cli, struct packet *pack, int *len_ptr, int 
     char *nptr = read_long_text(cli, pack, &sub_len, buffers);
 
     // alloc memory to hold all the data
-    ptr = malloc(bytes_read + sub_len);
+    ptr = (char *) malloc(bytes_read + sub_len);
 
     // move data from here in
     memmove(ptr, receive->buf, bytes_read);
@@ -391,69 +355,71 @@ int parse_enquiry(struct client *cli, struct packet *pack) {
     return 1;
   }
 
+	int head = 0;
+	int status = 0;
+	int control1 = 0;
+	int control2 = 0;
+
   time_t current;
   struct buffer *buf;
   switch(pack->control1) {
     case ENQUIRY_NORMAL:
-    DEBUG_PRINT("normal enquiry");
-    // just return an acknowledge
-    if (assemble_header(out, 0 , ACKNOWLEDGE, ENQUIRY, 0) > 0) {
-      DEBUG_PRINT("failed header assemble");
-      return 1;
-    }
-    break;
+    	DEBUG_PRINT("normal enquiry");
+    	// just return an acknowledge
+			status = ACKNOWLEDGE;
+			control1 = ENQUIRY;
+    	break;
 
     case ENQUIRY_RETURN:
-    DEBUG_PRINT("return enquiry");
-    // return a enquiry signal 0
-    if (assemble_header(out, 0 , ENQUIRY, 0, 0) > 0) {
-      DEBUG_PRINT("failed header assemble");
-      return 1;
-    }
-    break;
+    	DEBUG_PRINT("return enquiry");
+    	// return a enquiry signal 0
+			status = ENQUIRY;
+    	break;
 
     case ENQUIRY_TIME:
-    DEBUG_PRINT("time enquiry");
-    // parse time in data section
-    if (print_time(cli, pack) > 0) {
-      DEBUG_PRINT("failed time print");
-      return 1;
-    }
+    	DEBUG_PRINT("time enquiry");
+    	// return an acknowledge
+			status = ACKNOWLEDGE;
+			control1 = ENQUIRY;
 
-    // return an acknowledge
-    if (assemble_header(out, 0 , ACKNOWLEDGE, ENQUIRY, 0) > 0) {
-      DEBUG_PRINT("failed header assemble");
-      return 1;
-    }
-    break;
+			// read packet data
+			if (read_data(cli, pack, pack->control2, NULL) > 0) {
+				DEBUG_PRINT("failed time data read");
+				return 1;
+			}
+    	break;
 
     case ENQUIRY_RTIME:
-    DEBUG_PRINT("time request");
-    // return time enquiry packet
-    if (assemble_header(out, 0 , ENQUIRY, ENQUIRY_TIME, sizeof(time_t)) > 0) {
-      DEBUG_PRINT("failed header assemble");
-      return 1;
-    }
+    	DEBUG_PRINT("time request");
+    	// return time enquiry packet
+			status = ENQUIRY;
+			control1 = ENQUIRY_TIME;
+			control2 = sizeof(time_t);
 
-    // allocate data for time section
-    if (append_buffer(out, sizeof(time_t), &buf) > 0) {
-      DEBUG_PRINT("failed data expansion");
-      return 1;
-    }
+    	// allocate data for time section
+    	if (append_buffer(out, sizeof(time_t), &buf) > 0) {
+      	DEBUG_PRINT("failed data expansion");
+      	return 1;
+    	}
 
-    // place time in data section
-    current = time(NULL); // convert time_t to char *
-    if (assemble_body(buf, (char *) &current, sizeof(time_t)) > 0) {
-      DEBUG_PRINT("failed body assemble");
-      return 1;
-    }
-    break;
+    	// place time in data section
+    	current = time(NULL); // convert time_t to char *
+    	if (assemble_body(buf, (char *) &current, sizeof(time_t)) > 0) {
+      	DEBUG_PRINT("failed body assemble");
+      	return 1;
+    	}
+    	break;
 
     default:
-    DEBUG_PRINT("invalid control signal");
-    return 1;
-
+    	DEBUG_PRINT("invalid/unsupported control signal");
+    	return 1;
   }
+
+	// setup header for return packet
+	if (assemble_header(out, head, status, control1, control2) > 0) {
+		DEBUG_PRINT("failed header assemble");
+		return 1;
+	}
 
   // write to client
   if (write_packet_to_client(cli, out) > 0) {
@@ -479,30 +445,33 @@ int parse_acknowledge(struct client *cli, struct packet *pack) {
 
   switch (pack->control1) {
     case ENQUIRY:
-    // TODO: ping was received
-    DEBUG_PRINT("ping confirmed");
-    break;
+    	// TODO: ping was received
+    	DEBUG_PRINT("ping confirmed");
+    	break;
 
     case WAKEUP:
-    // TODO: the sender says it has woken up
-    DEBUG_PRINT("wakeup confirmed");
-    cli->inc_flag = NULL_BYTE;
-    break;
+    	// TODO: the sender says it has woken up
+    	DEBUG_PRINT("wakeup confirmed");
+    	cli->inc_flag = NULL_BYTE;
+    	break;
 
     case IDLE:
-    // TODO: the sender says it has gone asleep
-    DEBUG_PRINT("idle confirmed");
-    cli->inc_flag = IDLE;
-    break;
+    	// TODO: the sender says it has gone asleep
+    	DEBUG_PRINT("idle confirmed");
+    	cli->inc_flag = IDLE;
+    	break;
 
     case ESCAPE:
-    // TOOD: the sender knows you're stopping
-    DEBUG_PRINT("escape confirmed");
-    // marking this client as closed
-    cli->inc_flag = CANCEL;
-    cli->out_flag = CANCEL;
-    break;
+    	// TOOD: the sender knows you're stopping
+    	DEBUG_PRINT("escape confirmed");
+    	// marking this client as closed
+    	cli->inc_flag = CANCEL;
+    	cli->out_flag = CANCEL;
+    	break;
 
+		default:
+			DEBUG_PRINT("invalid/unsupported control signal");
+			return 1;
   }
 
   return 0;
@@ -791,7 +760,7 @@ int print_text(struct client *client, struct packet *pack) {
   }
 
   // print prefix for message
-  printf(msg_header, client->socket_fd);
+  printf(msg_header(), client->socket_fd);
 
   printf(recv_text_start);
   // print every buffer out sequentially
@@ -815,23 +784,26 @@ int print_enquiry(struct client *client, struct packet *pack) {
 
   switch(pack->control1) {
     case ENQUIRY_NORMAL:
-    printf(msg_header, client->socket_fd);
-    printf(recv_ping_norm);
-    break;
+    	printf(msg_header(), client->socket_fd);
+    	printf(recv_ping_norm);
+    	break;
 
     case ENQUIRY_RETURN:
-    printf(msg_header, client->socket_fd);
-    printf(recv_ping_send);
-    break;
+    	printf(msg_header(), client->socket_fd);
+    	printf(recv_ping_send);
+    	break;
 
     case ENQUIRY_TIME:
-    return print_time(client, pack);
-    break;
+    	return print_time(client, pack);
+    	break;
 
     case ENQUIRY_RTIME:
-    printf(msg_header, client->socket_fd);
-    printf(recv_ping_time_send);
-    break;
+    	printf(msg_header(), client->socket_fd);
+    	printf(recv_ping_time_send);
+    	break;
+
+		default:
+			return 1;
   }
 
   return 0;
@@ -851,13 +823,13 @@ int print_time(struct client *client, struct packet *pack) {
   }
 
   // grab first buffer in packet, convert char * to time_t
-  struct buffer *buf = pack->data;
-  time_t *container = (time_t *) buf->buf;
-  time_t message = *container;
+  //struct buffer *buf = pack->data;
+  //time_t *container = (time_t *) buf->buf;
+  //time_t message = *container;
 
   // print time message
-  printf(msg_header, client->socket_fd);
-  printf(recv_ping_time, message);
+  printf(msg_header(), client->socket_fd);
+  printf(recv_ping_time, *(long int *) pack->data->buf);
 
   return 0;
 }
@@ -869,6 +841,10 @@ int print_acknowledge(struct client *client, struct packet *pack) {
     return 1;
   }
 
+	// print acknowledge contents
+	printf(msg_header(), client->socket_fd);
+	printf(ackn_text, stat_to_str(pack->control1));
+
   return 0;
 }
 
@@ -878,6 +854,10 @@ int print_wakeup(struct client *client, struct packet *pack) {
     DEBUG_PRINT("invalid arguments");
     return 1;
   }
+
+	// print wakeup
+	printf(msg_header(), client->socket_fd);
+	printf(wakeup_text);
 
   return 0;
 }
@@ -889,6 +869,10 @@ int print_neg_acknowledge(struct client *client, struct packet *pack) {
     return 1;
   }
 
+	// print negative acknowledge contents
+	printf(msg_header(), client->socket_fd);
+	printf(neg_ackn_text, stat_to_str(pack->control1));
+
   return 0;
 }
 
@@ -899,6 +883,10 @@ int print_idle(struct client *client, struct packet *pack) {
     return 1;
   }
 
+	// print idle contents
+	printf(msg_header(), client->socket_fd);
+	printf(idle_text);
+
   return 0;
 }
 
@@ -908,6 +896,10 @@ int print_escape(struct client *client, struct packet *pack) {
     DEBUG_PRINT("invalid arguments");
     return 1;
   }
+
+	// print escape contents
+	printf(msg_header(), client->socket_fd);
+	printf(esc_text);
 
   return 0;
 }

@@ -5,6 +5,8 @@
 
 int read_to_buf(struct buffer *buffer, const int input, int *received);
 
+int read_data(struct client *cli, struct packet *pack, int remaining, int *received);
+
 int find_newline(const char *str, const int len, int *location);
 
 int remove_newline(char *str, const int len, int *location);

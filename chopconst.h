@@ -53,21 +53,6 @@
 #define MIN_FD 0
 
 /*
- * Printing Constants
- */
-
-static const char msg_header[] = "[CLIENT %d]";
-
-static const char recv_text_start[] = ": \"";
-static const char recv_text_seg[] = "%.*s";
-static const char recv_text_end[] = "\"\n";
-
-static const char recv_ping_norm[] = "[PING]\n";
-static const char recv_ping_send[] = "[ECHO]\n";
-static const char recv_ping_time[] = "[TIMEPING]: \"%ld\"\n";
-static const char recv_ping_time_send[] = "[TIMEECHO]\n";
-
-/*
  * Structures
  */
 

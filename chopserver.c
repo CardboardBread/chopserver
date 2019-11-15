@@ -44,6 +44,9 @@ int main(void) {
   // Reset SIGINT received flag.
   sigint_received = 0;
 
+	// mark debug statements as serverside
+	header_type = 0;
+
   // setup SIGINT handler
   struct sigaction act1;
   act1.sa_handler = sigint_handler;

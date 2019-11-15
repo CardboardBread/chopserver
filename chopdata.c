@@ -3,6 +3,7 @@
 #include "chopconst.h"
 #include "chopdata.h"
 #include "chopdebug.h"
+#include "choppacket.h"
 
 int read_to_buf(struct buffer *buffer, const int input, int *received) {
   // check valid inputs
@@ -40,6 +41,66 @@ int read_to_buf(struct buffer *buffer, const int input, int *received) {
 
   DEBUG_PRINT("read %d", readlen);
   return 0;
+}
+
+int read_data(struct client *cli, struct packet *pack, int remaining, int *received) {
+	// check valid inputs
+	if (cli == NULL || pack == NULL || remaining < 0) {
+		DEBUG_PRINT("invalid arguments");
+		return 1;
+	}
+
+	// zero incoming
+	if (remaining == 0) {
+		return 0;
+	}
+
+	int buffers = remaining / cli->window + (remaining % cli->window != 0);
+
+  // loop as many times as new buffers are needed
+  int total = 0;
+  int expected;
+  int bytes_read;
+  struct buffer *receive;
+  for (int i = 0; i < buffers; i++) {
+
+    // allocate more space to hold data
+    if (append_buffer(pack, cli->window, &receive) > 0) {
+      DEBUG_PRINT("fail allocate buffer %d", i);
+      return 1;
+    }
+
+    // read expected bytes per data segment
+    expected = (receive->bufsize > remaining) ? remaining : receive->bufsize;
+    bytes_read = read(cli->socket_fd, receive->buf, expected);
+    if (bytes_read != expected) {
+
+      // in case read isn't perfect
+      if (bytes_read < 0) {
+        DEBUG_PRINT("failed data read");
+        return 1;
+      } else if (bytes_read == 0) {
+        DEBUG_PRINT("socket closed");
+        return 1;
+      } else {
+        DEBUG_PRINT("incomplete data read");
+        return 1;
+      }
+    }
+
+    // update tracker fields
+    remaining -= bytes_read;
+    total += bytes_read;
+    receive->inbuf = bytes_read;
+  }
+
+	// report incoming width if possible
+	if (received != NULL) {
+		*received = total;
+	}
+
+	DEBUG_PRINT("data section length %d, %d segments", total, buffers);
+	return 0;
 }
 
 int find_newline(const char *buf, const int len, int *location) {

@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <time.h>
 
 #include "chopconn.h"
 #include "chopconst.h"
@@ -35,6 +36,9 @@ void sigint_handler(int code) {
 int main(void) {
   // Reset SIGINT received flag.
   sigint_received = 0;
+
+	// mark debug statements as clientside
+	header_type = 1;
 
   // init connection model
   if (init_client_struct(&server_connection, BUFSIZE) > 0) {
@@ -108,49 +112,71 @@ int main(void) {
       }
 
       // setting values of header
-      if (strcmp(buffer, "exit") == 0) { // exit
+      if (strcmp(buffer, "exit") == 0) {
+				// exit
         if (assemble_header(pack, 0, ESCAPE, 0, 0) > 0) {
           DEBUG_PRINT("failed header assemble");
           return 1;
         }
 
-      } else if (strcmp(buffer, "ping") == 0) { // regular ping
+      } else if (strcmp(buffer, "ping") == 0) {
+				// regular ping
         if (assemble_header(pack, 0, ENQUIRY, ENQUIRY_NORMAL, 0) > 0) {
           DEBUG_PRINT("failed header assemble");
           return 1;
         }
 
-      } else if (strcmp(buffer, "pingret") == 0) { // returning ping
+      } else if (strcmp(buffer, "pingret") == 0) {
+				// returning ping
         if (assemble_header(pack, 0, ENQUIRY, ENQUIRY_RETURN, 0) > 0) {
           DEBUG_PRINT("failed header assemble");
           return 1;
         }
 
-      } else if (strcmp(buffer, "pingtime") == 0) { // sending time ping
-        if (assemble_header(pack, 0, ENQUIRY, ENQUIRY_TIME, 0) > 0) {
+      } else if (strcmp(buffer, "pingtime") == 0) {
+				// sending time ping
+        if (assemble_header(pack, 0, ENQUIRY, ENQUIRY_TIME, sizeof(time_t)) > 0) {
           DEBUG_PRINT("failed header assemble");
           return 1;
         }
 
-      } else if (strcmp(buffer, "pingtimeret") == 0) { // requesting time ping
+				// allocate data for time section
+				struct buffer *buf;
+	    	if (append_buffer(pack, sizeof(time_t), &buf) > 0) {
+	      	DEBUG_PRINT("failed data expansion");
+	      	return 1;
+	    	}
+
+				// place time in data section
+	    	time_t current = time(NULL); // convert time_t * to char *
+	    	if (assemble_body(buf, (char *) &current, sizeof(time_t)) > 0) {
+	      	DEBUG_PRINT("failed body assemble");
+	      	return 1;
+	    	}
+
+      } else if (strcmp(buffer, "pingtimeret") == 0) {
+				// requesting time ping
         if (assemble_header(pack, 0, ENQUIRY, ENQUIRY_RTIME, 0) > 0) {
           DEBUG_PRINT("failed header assemble");
           return 1;
         }
 
-      } else if (strcmp(buffer, "sleep") == 0) { // sleep request
+      } else if (strcmp(buffer, "sleep") == 0) {
+				// sleep request
         if (assemble_header(pack, 0, IDLE, 0, 0) > 0) {
           DEBUG_PRINT("failed header assemble");
           return 1;
         }
 
-      } else if (strcmp(buffer, "wake") == 0) { // wake request
+      } else if (strcmp(buffer, "wake") == 0) {
+				// wake request
         if (assemble_header(pack, 0, WAKEUP, 0, 0) > 0) {
           DEBUG_PRINT("failed header assemble");
           return 1;
         }
 
-      } else { // send user input
+      } else {
+				// send user input
         if (send_str_to_client(server_connection, buffer) > 0) {
           DEBUG_PRINT("failed sending user input");
           return 1;
