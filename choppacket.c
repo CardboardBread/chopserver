@@ -119,6 +119,12 @@ int read_header(struct client *cli, struct packet *pack) {
 
   // TODO: this is very platform dependent
   DEBUG_PRINT("read header, style %d", packet_style(pack));
+
+	char *headb = char_to_bin(pack->head);
+	char *statb = char_to_bin(pack->status);
+	char *cont1b = char_to_bin(pack->control1);
+	char *cont2b = char_to_bin(pack->control2);
+	DEBUG_PRINT("header bits: \"%s:%s:%s:%s\"", headb, statb, cont1b, cont2b);
   return 0;
 }
 

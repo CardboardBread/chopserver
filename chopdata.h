@@ -13,4 +13,6 @@ int remove_newline(char *str, const int len, int *location);
 
 int buf_contains_symbol(const char *buf, const int len, const char symbol, int *symbol_index);
 
+char *char_to_bin(char value);
+
 #endif
