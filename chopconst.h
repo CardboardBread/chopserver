@@ -94,6 +94,15 @@ struct client {
 #define HEADER_LEN sizeof(struct packet) - sizeof(struct buffer *) - sizeof(int)
 
 /*
+ * Unions
+ */
+
+union transport {
+	struct packet packet;
+	char header[HEADER_LEN];
+};
+
+/*
  * Structure Management Functions
  */
 

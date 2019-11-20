@@ -61,6 +61,7 @@ int main(void) {
 
   int run = 1;
   while (run) {
+		printf("\n");
 
     // closing connections and freeing memory before the process ends
     if (sigint_received) {
@@ -92,18 +93,11 @@ int main(void) {
 
     // reading from stdin, parsing and sending to server
     int num_read;
-    char buffer[256];
+    char buffer[127];
     if (FD_ISSET(STDIN_FILENO, &listen_fds)) {
-      num_read = read(STDIN_FILENO, buffer, 255);
+      num_read = read(STDIN_FILENO, buffer, 126);
       if (num_read == 0) break;
-      buffer[255] = '\0';
-
-      // initializing packet struct
-      struct packet *pack;
-      if (init_packet_struct(&pack) > 0) {
-        DEBUG_PRINT("failed init packet");
-        return 1;
-      }
+      buffer[126] = '\0';
 
       int loc;
       if (remove_newline(buffer, num_read, &loc) > 0) {
@@ -114,87 +108,60 @@ int main(void) {
       // setting values of header
       if (strcmp(buffer, "exit") == 0) {
 				// exit
-        if (assemble_header(pack, 0, ESCAPE, 0, 0) > 0) {
-          DEBUG_PRINT("failed header assemble");
+        if (write_dataless(server_connection, 0, ESCAPE, 0, 0) > 0) {
+          DEBUG_PRINT("failed packet write");
           return 1;
         }
 
       } else if (strcmp(buffer, "ping") == 0) {
 				// regular ping
-        if (assemble_header(pack, 0, ENQUIRY, ENQUIRY_NORMAL, 0) > 0) {
-          DEBUG_PRINT("failed header assemble");
+        if (write_dataless(server_connection, 0, ENQUIRY, ENQUIRY_NORMAL, 0) > 0) {
+          DEBUG_PRINT("failed packet write");
           return 1;
         }
 
       } else if (strcmp(buffer, "pingret") == 0) {
 				// returning ping
-        if (assemble_header(pack, 0, ENQUIRY, ENQUIRY_RETURN, 0) > 0) {
-          DEBUG_PRINT("failed header assemble");
+        if (write_dataless(server_connection, 0, ENQUIRY, ENQUIRY_RETURN, 0) > 0) {
+          DEBUG_PRINT("failed packet write");
           return 1;
         }
 
       } else if (strcmp(buffer, "pingtime") == 0) {
 				// sending time ping
-        if (assemble_header(pack, 0, ENQUIRY, ENQUIRY_TIME, sizeof(time_t)) > 0) {
-          DEBUG_PRINT("failed header assemble");
-          return 1;
-        }
-
-				// allocate data for time section
-				struct buffer *buf;
-	    	if (append_buffer(pack, sizeof(time_t), &buf) > 0) {
-	      	DEBUG_PRINT("failed data expansion");
-	      	return 1;
-	    	}
-
-				// place time in data section
-	    	time_t current = time(NULL); // convert time_t * to char *
-	    	if (assemble_body(buf, (char *) &current, sizeof(time_t)) > 0) {
-	      	DEBUG_PRINT("failed body assemble");
-	      	return 1;
-	    	}
+				if (write_wordpack(server_connection, 0, ENQUIRY, ENQUIRY_TIME, sizeof(time_t), time(NULL)) > 0) {
+					DEBUG_PRINT("failed packet write");
+					return 1;
+				}
 
       } else if (strcmp(buffer, "pingtimeret") == 0) {
 				// requesting time ping
-        if (assemble_header(pack, 0, ENQUIRY, ENQUIRY_RTIME, 0) > 0) {
-          DEBUG_PRINT("failed header assemble");
+        if (write_dataless(server_connection, 0, ENQUIRY, ENQUIRY_RTIME, 0) > 0) {
+          DEBUG_PRINT("failed packet write");
           return 1;
         }
 
       } else if (strcmp(buffer, "sleep") == 0) {
 				// sleep request
-        if (assemble_header(pack, 0, IDLE, 0, 0) > 0) {
-          DEBUG_PRINT("failed header assemble");
+        if (write_dataless(server_connection, 0, IDLE, 0, 0) > 0) {
+          DEBUG_PRINT("failed packet write");
           return 1;
         }
 
       } else if (strcmp(buffer, "wake") == 0) {
 				// wake request
-        if (assemble_header(pack, 0, WAKEUP, 0, 0) > 0) {
-          DEBUG_PRINT("failed header assemble");
+        if (write_dataless(server_connection, 0, WAKEUP, 0, 0) > 0) {
+          DEBUG_PRINT("failed packet write");
           return 1;
         }
 
       } else {
 				// send user input
-        if (send_str_to_client(server_connection, buffer) > 0) {
+        if (write_datapack(server_connection, 0, START_TEXT, 1, 127, buffer, 127) > 0) {
           DEBUG_PRINT("failed sending user input");
           return 1;
         }
         continue;
-
-      }
-
-      // write to client
-      if (write_packet_to_client(server_connection, pack) > 0) {
-        DEBUG_PRINT("failed write");
-        return 1;
-      }
-
-      // destroy allocated packet
-      if (destroy_packet_struct(&pack) > 0) {
-        DEBUG_PRINT("failed packet destroy");
-        return 1;
       }
     }
   }

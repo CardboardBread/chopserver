@@ -9,6 +9,12 @@
 
 int write_packet_to_client(struct client *cli, struct packet *pack);
 
+int write_dataless(struct client *cli, const char head, const char status, const char control1, const char control2);
+
+int write_datapack(struct client *cli, const char head, const char status, const char control1, const char control2, const char *buf, const int buflen);
+
+int write_wordpack(struct client *cli, const char head, const char status, const char control1, const char control2, unsigned long int value);
+
 /*
  * Receiving functions
  */
@@ -41,7 +47,7 @@ int parse_escape(struct client *cli, struct packet *pack);
 
 int assemble_header(struct packet *pack, int head, int status, int control1, int control2);
 
-int split_header(struct packet *pack, char *header);
+int split_header(struct packet *pack, const char *header);
 
 int assemble_body(struct buffer *buffer, const char *data, const int len);
 

@@ -87,6 +87,7 @@ int main(void) {
 
   int run = 1;
   while (run) {
+		printf("\n");
 
     // closing connections and freeing memory before the process ends
     if (sigint_received) {
