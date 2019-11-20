@@ -11,9 +11,11 @@ int write_packet_to_client(struct client *cli, struct packet *pack);
 
 int write_dataless(struct client *cli, const char head, const char status, const char control1, const char control2);
 
-int write_datapack(struct client *cli, const char head, const char status, const char control1, const char control2, const char *buf, const int buflen);
+int write_datapack(struct client *cli, const char head, const char status, const char control1, const char control2,
+				   const char *buf, const int buflen);
 
-int write_wordpack(struct client *cli, const char head, const char status, const char control1, const char control2, unsigned long int value);
+int write_wordpack(struct client *cli, const char head, const char status, const char control1, const char control2,
+				   unsigned long int value);
 
 /*
  * Receiving functions

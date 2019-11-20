@@ -20,10 +20,10 @@
 #define END_TEXT 3 // used in conjuction with variable length START_TEXT
 #define END_TRANSMISSION 4 // TODO
 #define ENQUIRY 5 // basically a ping
-  #define ENQUIRY_NORMAL 0 // just acknowledge
-  #define ENQUIRY_RETURN 1 // return enquiry signal1=0
-  #define ENQUIRY_TIME 2 // sent time in data section
-  #define ENQUIRY_RTIME 3 // return time in data section
+#define ENQUIRY_NORMAL 0 // just acknowledge
+#define ENQUIRY_RETURN 1 // return enquiry signal1=0
+#define ENQUIRY_TIME 2 // sent time in data section
+#define ENQUIRY_RTIME 3 // return time in data section
 #define ACKNOWLEDGE 6 // signal was received, control1 is recieved status
 #define WAKEUP 7 // wake sleeping connection
 
@@ -57,34 +57,34 @@
  */
 
 struct buffer {
-  char *buf;
-  int inbuf;
-  int bufsize;
-  struct buffer *next;
+	char *buf;
+	int inbuf;
+	int bufsize;
+	struct buffer *next;
 };
 
 struct packet {
-  char head;
-  char status;
-  char control1;
-  char control2;
-  struct buffer *data;
-  int datalen;
+	char head;
+	char status;
+	char control1;
+	char control2;
+	struct buffer *data;
+	int datalen;
 };
 
 struct server {
-  int server_fd;
-  struct client **clients; // array of client pointers
-  int max_connections;
-  int cur_connections;
+	int server_fd;
+	struct client **clients; // array of client pointers
+	int max_connections;
+	int cur_connections;
 };
 
 struct client {
-  int socket_fd; // fd of the client
-  int server_fd; // fd of the server this client is attached to, -1 if client
-  char inc_flag; // what the client is receiving
-  char out_flag; // what the client is sending
-  int window; // how much data the client can pass at once
+	int socket_fd; // fd of the client
+	int server_fd; // fd of the server this client is attached to, -1 if client
+	char inc_flag; // what the client is receiving
+	char out_flag; // what the client is sending
+	int window; // how much data the client can pass at once
 };
 
 /*
