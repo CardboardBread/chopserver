@@ -3,7 +3,7 @@
 
 #include <netinet/in.h>    /* Internet domain header, for struct sockaddr_in */
 
-int init_server_addr(struct sockaddr_in **addr, const int port);
+int init_server_addr(struct sockaddr_in *addr, const int port);
 
 int setup_server_socket(struct sockaddr_in *self, int *ret_socket, const int num_queue);
 

@@ -13,27 +13,18 @@
 /*
  * Initialize a server address associated with the given port.
  */
-int init_server_addr(struct sockaddr_in **addr, const int port) {
+int init_server_addr(struct sockaddr_in *addr, const int port) {
 	// check valid arguments
 	if (addr == NULL || port < 0) {
 		DEBUG_PRINT("invalid arguments");
 		return 1;
 	}
 
-	// allocate struct memory, catch ENOMEM
-	*addr = malloc(sizeof(struct sockaddr_in));
-	if (addr == NULL) {
-		DEBUG_PRINT("malloc fail");
-		return 1;
-	}
-
-	struct sockaddr_in *serv = *addr;
-
 	// initialize struct fields
-	serv->sin_family = PF_INET; // Allow sockets across machines.
-	serv->sin_port = htons(port); // The port the process will listen on.
-	memset(&(serv->sin_zero), 0, 8); // Clear this field; sin_zero is used for padding for the struct.
-	serv->sin_addr.s_addr = INADDR_ANY; // Listen on all network interfaces.
+	addr->sin_family = PF_INET; // Allow sockets across machines.
+	addr->sin_port = htons(port); // The port the process will listen on.
+	memset(&(addr->sin_zero), 0, 8); // Clear this field; sin_zero is used for padding for the struct.
+	addr->sin_addr.s_addr = INADDR_ANY; // Listen on all network interfaces.
 
 	return 0;
 }
