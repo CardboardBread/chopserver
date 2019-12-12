@@ -1,6 +1,8 @@
 #ifndef __CHOPCONST_H__
 #define __CHOPCONST_H__
 
+#include <netinet/in.h>
+
 /*
  * Packet Macros
  */
@@ -74,6 +76,7 @@ struct packet {
 
 struct server {
 	int server_fd;
+	struct sockaddr_in address;
 	struct client **clients; // array of client pointers
 	int max_connections;
 	int cur_connections;

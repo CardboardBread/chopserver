@@ -65,15 +65,14 @@ int main(void) {
 	DEBUG_PRINT("server struct on %d slots", MAX_CONNECTIONS);
 
 	// setup server address
-	struct sockaddr_in self;
-	if (init_server_addr(&self, PORT) > 0) {
+	if (init_server_addr(&(host->address), PORT) > 0) {
 		DEBUG_PRINT("failed addr init");
 		exit(1);
 	}
 	DEBUG_PRINT("addr init successful");
 
 	// setup server socket
-	if (setup_server_socket(&self, &(host->server_fd), CONNECTION_QUEUE) > 0) {
+	if (setup_server_socket(&(host->address), &(host->server_fd), CONNECTION_QUEUE) > 0) {
 		DEBUG_PRINT("failed server socket init");
 		exit(1);
 	}
