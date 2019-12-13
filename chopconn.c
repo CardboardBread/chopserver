@@ -42,12 +42,12 @@ int accept_new_client(struct server *receiver, int *newfd, const int bufsize) {
 			}
 
 			// initialize new client
-			struct client *new = receiver->clients[i];
-			new->socket_fd = client_fd;
-			new->server_fd = receiver->server_fd;
-			new->inc_flag = 0;
-			new->out_flag = 0;
-			new->window = bufsize;
+			struct client *init = receiver->clients[i];
+			init->socket_fd = client_fd;
+			init->server_fd = receiver->server_fd;
+			init->inc_flag = 0;
+			init->out_flag = 0;
+			init->window = bufsize;
 
 			// track new client
 			receiver->cur_connections++;
@@ -89,12 +89,12 @@ int establish_server_connection(const char *address, const int port, struct clie
 	}
 
 	// initialize client struct
-	struct client *new = *dest;
-	new->socket_fd = fd;
-	new->server_fd = -1;
-	new->inc_flag = 0;
-	new->out_flag = 0;
-	new->window = bufsize;
+	struct client *init = *dest;
+	init->socket_fd = fd;
+	init->server_fd = -1;
+	init->inc_flag = 0;
+	init->out_flag = 0;
+	init->window = bufsize;
 
 	DEBUG_PRINT("connection successful");
 	return 0;
@@ -125,7 +125,7 @@ int remove_client_index(const int client_index, struct server *host) {
 
 int remove_client_address(const int client_index, struct client **target) {
 	// precondition for invalid arguments
-	if (client_index < MIN_FD || target == NULL) {
+	if (client_index < MIN_FD) {
 		DEBUG_PRINT("invalid arguments");
 		return 1;
 	}
