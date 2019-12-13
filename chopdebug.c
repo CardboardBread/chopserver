@@ -13,12 +13,12 @@ static const char *all_headers[] = {"[CLIENT %d]", "[SERVER %d]"};
  * Header-to-String Section
  */
 
-/*static const int packet_id_len = 4;
+static const int packet_id_len = 4;
 static const char *packet_id[] = {
 "PACKET_HEAD",
 "PACKET_STATUS",
 "PACKET_CONTROL1",
-"PACKET_CONTROL2"};*/
+"PACKET_CONTROL2"};
 
 static const int status_str_len = 32;
 static const char *status_str[] = {
@@ -119,6 +119,14 @@ const char *enq_cont_to_str(char control1) {
 	}
 
 	return enquiry_str[index];
+}
+
+const char *pack_id_to_str(int id) {
+	if (id < 0 || id > packet_id_len) {
+		return NULL;
+	}
+
+	return packet_id[id];
 }
 
 const char *msg_header() {

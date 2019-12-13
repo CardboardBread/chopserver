@@ -52,6 +52,8 @@ const char *stat_to_str(char status);
 
 const char *enq_cont_to_str(char control1);
 
+const char *pack_id_to_str(int id);
+
 const char *msg_header();
 
 #endif
