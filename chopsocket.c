@@ -10,9 +10,6 @@
 #include "chopdebug.h"
 #include "chopsocket.h"
 
-/*
- * Initialize a server address associated with the given port.
- */
 int init_server_addr(struct sockaddr_in *addr, const int port) {
 	// check valid arguments
 	if (addr == NULL || port < 0) {
@@ -29,9 +26,6 @@ int init_server_addr(struct sockaddr_in *addr, const int port) {
 	return 0;
 }
 
-/*
- * Create and setup a socket for a server to listen on.
- */
 int setup_server_socket(struct sockaddr_in *self, int *ret_socket, const int num_queue) {
 	// check valid arguments
 	if (self == NULL || ret_socket == NULL || num_queue < 1) {
@@ -74,10 +68,6 @@ int setup_server_socket(struct sockaddr_in *self, int *ret_socket, const int num
 	return 0;
 }
 
-/*
- * Wait for and accept a new connection.
- * Return -1 if the accept call failed.
- */
 int accept_connection(const int listenfd, int *newfd) {
 	// check valid arguments
 	if (listenfd < MIN_FD || newfd == NULL) {
@@ -100,9 +90,6 @@ int accept_connection(const int listenfd, int *newfd) {
 	return 0;
 }
 
-/*
- * Create a socket and connect to the server indicated by the port and hostname
- */
 int connect_to_server(const char *hostname, const int port, int *ret_socket) {
 	// check valid arguments
 	if (hostname == NULL || port < 0 || ret_socket == NULL) {
