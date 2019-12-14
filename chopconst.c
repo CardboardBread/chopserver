@@ -16,28 +16,28 @@ int init_buffer_struct(struct buffer **target, const int size) {
 	}
 
 	// allocate structure
-	struct buffer *new = malloc(sizeof(struct buffer));
-	if (new == NULL) {
+	struct buffer *init = (struct buffer *) malloc(sizeof(struct buffer));
+	if (init == NULL) {
 		DEBUG_PRINT("malloc, structure");
 		return 1;
 	}
 
 	// allocate buffer memory
-	char *mem = malloc(sizeof(char) * size);
+	char *mem = (char *) malloc(sizeof(char) * size);
 	if (mem == NULL) {
 		DEBUG_PRINT("malloc, memory");
-		free(new);
+		free(init);
 		return 1;
 	}
 
 	// initialize structure fields
-	new->buf = mem;
-	new->inbuf = 0;
-	new->bufsize = size;
-	new->next = NULL;
+	init->buf = mem;
+	init->inbuf = 0;
+	init->bufsize = size;
+	init->next = NULL;
 
 	// set given pointer to new struct
-	*target = new;
+	*target = init;
 
 	return 0;
 }
@@ -49,22 +49,22 @@ int init_packet_struct(struct packet **target) {
 	}
 
 	// allocate structure
-	struct packet *new = malloc(sizeof(struct packet));
-	if (new == NULL) {
+	struct packet *init = (struct packet *) malloc(sizeof(struct packet));
+	if (init == NULL) {
 		DEBUG_PRINT("malloc");
 		return 1;
 	}
 
 	// initialize structure fields
-	new->head = -1;
-	new->status = -1;
-	new->control1 = -1;
-	new->control2 = -1;
-	new->data = NULL;
-	new->datalen = 0;
+	init->head = -1;
+	init->status = -1;
+	init->control1 = -1;
+	init->control2 = -1;
+	init->data = NULL;
+	init->datalen = 0;
 
 	// set given pointer to new struct
-	*target = new;
+	*target = init;
 
 	return 0;
 }
@@ -76,17 +76,17 @@ int init_server_struct(struct server **target, const int max_conns) {
 	}
 
 	// allocate structure
-	struct server *new = malloc(sizeof(struct server));
-	if (new == NULL) {
+	struct server *init = (struct server *) malloc(sizeof(struct server));
+	if (init == NULL) {
 		DEBUG_PRINT("malloc, structure");
 		return 1;
 	}
 
 	// allocate server client array
-	struct client **mem = malloc(sizeof(struct client *) * max_conns);
+	struct client **mem = (struct client **) malloc(sizeof(struct client *) * max_conns);
 	if (mem == NULL && max_conns > 0) { // in case zero clients allowed
 		DEBUG_PRINT("malloc, memory");
-		free(new);
+		free(init);
 		return 1;
 	}
 
@@ -96,13 +96,13 @@ int init_server_struct(struct server **target, const int max_conns) {
 	}
 
 	// initialize structure fields
-	new->server_fd = -1;
-	new->clients = mem;
-	new->max_connections = max_conns;
-	new->cur_connections = 0;
+	init->server_fd = -1;
+	init->clients = mem;
+	init->max_connections = max_conns;
+	init->cur_connections = 0;
 
 	// set given pointer to new struct
-	*target = new;
+	*target = init;
 
 	return 0;
 }
@@ -114,21 +114,21 @@ int init_client_struct(struct client **target, const int size) {
 	}
 
 	// allocate structure
-	struct client *new = malloc(sizeof(struct client));
-	if (new == NULL) {
+	struct client *init = (struct client *) malloc(sizeof(struct client));
+	if (init == NULL) {
 		DEBUG_PRINT("malloc");
 		return 1;
 	}
 
 	// initialize structure fields
-	new->socket_fd = -1;
-	new->server_fd = -1;
-	new->inc_flag = -1;
-	new->out_flag = -1;
-	new->window = size;
+	init->socket_fd = -1;
+	init->server_fd = -1;
+	init->inc_flag = -1;
+	init->out_flag = -1;
+	init->window = size;
 
 	// set given pointer to new struct
-	*target = new;
+	*target = init;
 
 	return 0;
 }
