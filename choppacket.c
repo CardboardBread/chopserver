@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
 #include <time.h>
 
 #include "chopconst.h"
@@ -17,39 +18,32 @@ int write_packet_to_client(struct client *cli, struct packet *pack) {
 	// precondition for invalid arguments
 	if (cli == NULL || pack == NULL) {
 		DEBUG_PRINT("invalid arguments");
-		return 1;
+		return -EINVAL;
 	}
 
 	// mark client outgoing flag with status
 	cli->out_flag = pack->status;
 
-	// isolate header using union
-	union transport *convert = (union transport *) pack;
-
-	// assemble header for sending
-	//char header[] = {pack->head, pack->status, pack->control1, pack->control2};
-
 	// write header packet to target
-	int head_written = write(cli->socket_fd, convert->header, HEADER_LEN);
+	ssize_t head_written = write(cli->socket_fd, (void *) pack, HEADER_LEN);
 	if (head_written != HEADER_LEN) {
-
 		// in case write was not perfectly successful
 		if (head_written < 0) {
 			DEBUG_PRINT("failed header write");
-			return 1;
+			return -errno;
 		} else if (head_written == 0) {
 			DEBUG_PRINT("socket closed");
-			return 1;
+			return 1; // TODO: what to return?
 		} else {
 			DEBUG_PRINT("incomplete header write");
-			return 1;
+			return 1; // TODO: what to return?
 		}
 	}
 
 	// loop through all buffers in packet's data section
 	int total = 0;
 	int tracker = 0;
-	int bytes_written;
+	ssize_t bytes_written;
 	struct buffer *segment;
 	for (segment = pack->data; segment != NULL; segment = segment->next) {
 
@@ -60,13 +54,13 @@ int write_packet_to_client(struct client *cli, struct packet *pack) {
 			// in case write was not perfectly successful
 			if (bytes_written < 0) {
 				DEBUG_PRINT("failed data write, segment %d", tracker);
-				return 1;
+				return -errno;
 			} else if (bytes_written == 0) {
 				DEBUG_PRINT("socket closed");
-				return 1;
+				return 1; // TODO: what to return?
 			} else {
 				DEBUG_PRINT("incomplete data write, segment %d", tracker);
-				return 1;
+				return 1; // TODO: what to return?
 			}
 		}
 
@@ -83,7 +77,7 @@ int write_packet_to_client(struct client *cli, struct packet *pack) {
 	return 0;
 }
 
-int write_dataless(struct client *cli, const char head, const char status, const char control1, const char control2) {
+int write_dataless(struct client *cli, const pack_head head, const pack_stat status, const pack_con1 control1, const pack_con2 control2) {
 	// precondition for invalid arguments
 	if (cli == NULL || head < 0 || status < 0 || control1 < 0 || control2 < 0) {
 		DEBUG_PRINT("invalid argument");
@@ -118,8 +112,7 @@ int write_dataless(struct client *cli, const char head, const char status, const
 	return 0;
 }
 
-int write_datapack(struct client *cli, const char head, const char status, const char control1, const char control2,
-				   const char *buf, const int buflen) {
+int write_datapack(struct client *cli, const pack_head head, const pack_stat status, const pack_con1 control1, const pack_con2 control2, const char *buf, const int buflen) {
 	// check valid arguments
 	if (cli == NULL || head < 0 || status < 0 || control1 < 0 || control2 < 0 || buf == NULL || buflen < 0) {
 		DEBUG_PRINT("invalid arguments");
@@ -167,8 +160,7 @@ int write_datapack(struct client *cli, const char head, const char status, const
 	return 0;
 }
 
-int write_wordpack(struct client *cli, const char head, const char status, const char control1, const char control2,
-				   unsigned long int value) {
+int write_wordpack(struct client *cli, const pack_head head, const pack_stat status, const pack_con1 control1, const pack_con2 control2, unsigned long int value) {
 	// precondition for invalid arguments
 	if (cli == NULL || head < 0 || status < 0 || control1 < 0 || control2 < 0) {
 		DEBUG_PRINT("invalid arguments");
