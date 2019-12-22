@@ -13,6 +13,12 @@ int remove_newline(char *str, const int len, int *location);
 
 int buf_contains_symbol(const char *buf, const int len, const char symbol, int *symbol_index);
 
-char *char_to_bin(char value);
+/*
+ * Converts the given value into its binary representation within a string.
+ * Places the string representation in the given buffer, which is assumed to be
+ * at least 9 bytes long, in order to hold all 8 bits in char form, as well as
+ * the terminating bit.
+ */
+void char_to_bin(char value, char *ret);
 
 #endif

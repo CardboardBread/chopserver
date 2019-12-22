@@ -204,8 +204,7 @@ int buf_contains_symbol(const char *buf, const int len, const char symbol, int *
 	return 1;
 }
 
-char *char_to_bin(char value) {
-	char *ret = (char *) malloc(sizeof(char) * 9);
+void char_to_bin(char value, char *ret) {
 	for (int i = 0; i < 8; i++) {
 		if (value & (0x1 << i)) {
 			ret[7 - i] = '1';
@@ -214,5 +213,4 @@ char *char_to_bin(char value) {
 		}
 	}
 	ret[8] = '\0';
-	return ret;
 }
