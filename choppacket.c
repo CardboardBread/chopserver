@@ -33,10 +33,10 @@ int write_packet_to_client(struct client *cli, struct packet *pack) {
 			return -errno;
 		} else if (head_written == 0) {
 			DEBUG_PRINT("socket closed");
-			return 1; // TODO: what to return?
+			return -1; // TODO: what to return?
 		} else {
 			DEBUG_PRINT("incomplete header write");
-			return 1; // TODO: what to return?
+			return -1; // TODO: what to return?
 		}
 	}
 
@@ -50,17 +50,16 @@ int write_packet_to_client(struct client *cli, struct packet *pack) {
 		// write buffer to target (if any)
 		bytes_written = write(cli->socket_fd, segment->buf, segment->inbuf);
 		if (bytes_written != segment->inbuf) {
-
 			// in case write was not perfectly successful
 			if (bytes_written < 0) {
 				DEBUG_PRINT("failed data write, segment %d", tracker);
 				return -errno;
 			} else if (bytes_written == 0) {
 				DEBUG_PRINT("socket closed");
-				return 1; // TODO: what to return?
+				return -1; // TODO: what to return?
 			} else {
 				DEBUG_PRINT("incomplete data write, segment %d", tracker);
-				return 1; // TODO: what to return?
+				return -1; // TODO: what to return?
 			}
 		}
 
@@ -74,87 +73,88 @@ int write_packet_to_client(struct client *cli, struct packet *pack) {
 
 	// TODO: this is very platform dependent
 	DEBUG_PRINT("packet style %d, %d bytes body", packet_style(pack), total);
-	return 0;
+	return total;
 }
 
 int write_dataless(struct client *cli, const pack_head head, const pack_stat status, const pack_con1 control1, const pack_con2 control2) {
 	// precondition for invalid arguments
-	if (cli == NULL || head < 0 || status < 0 || control1 < 0 || control2 < 0) {
+	if (cli == NULL) {
 		DEBUG_PRINT("invalid argument");
-		return 1;
+		return -ENIVAL;
 	}
 
 	// initalize packet
 	struct packet *out;
-	if (init_packet_struct(&out) > 0) {
+	if (init_packet_struct(&out) < 0) {
 		DEBUG_PRINT("failed init packet");
-		return 1;
+		return -1;
 	}
 
 	// setting header value
-	if (assemble_header(out, head, status, control1, control2) > 0) {
+	if (assemble_header(out, head, status, control1, control2) < 0) {
 		DEBUG_PRINT("failed header assemble");
-		return 1;
+		return -1;
 	}
 
 	// write to client
-	if (write_packet_to_client(cli, out) > 0) {
+	int ret = write_packet_to_client(cli, out);
+	if (ret < 0) {
 		DEBUG_PRINT("failed write");
-		return 1;
+		return ret;
 	}
 
 	// destroy allocated packet
-	if (destroy_packet_struct(&out) > 0) {
+	if (destroy_packet_struct(&out) < 0) {
 		DEBUG_PRINT("failed packet destroy");
-		return 1;
+		return -1;
 	}
 
-	return 0;
+	return ret;
 }
 
 int write_datapack(struct client *cli, const pack_head head, const pack_stat status, const pack_con1 control1, const pack_con2 control2, const char *buf, const int buflen) {
 	// check valid arguments
-	if (cli == NULL || head < 0 || status < 0 || control1 < 0 || control2 < 0 || buf == NULL || buflen < 0) {
+	if (cli == NULL || buf == NULL || buflen < 0) {
 		DEBUG_PRINT("invalid arguments");
-		return 1;
+		return -EINVAL;
 	}
 
 	// initalize packet
 	struct packet *out;
-	if (init_packet_struct(&out) > 0) {
+	if (init_packet_struct(&out) < 0) {
 		DEBUG_PRINT("failed init packet");
-		return 1;
+		return -ENOMEM;
 	}
 
 	// setting header value
-	if (assemble_header(out, head, status, control1, control2) > 0) {
+	if (assemble_header(out, head, status, control1, control2) < 0) {
 		DEBUG_PRINT("failed header assemble");
-		return 1;
+		return -EINVAL;
 	}
 
 	// allocate data segment
 	struct buffer *segment;
-	if (append_buffer(out, buflen, &segment) > 0) {
+	if (append_buffer(out, buflen, &segment) < 0) {
 		DEBUG_PRINT("failed data expansion");
-		return 1;
+		return -1;
 	}
 
 	// place data in section
-	if (assemble_body(segment, buf, buflen) > 0) {
+	if (assemble_body(segment, buf, buflen) < 0) {
 		DEBUG_PRINT("failed body assemble");
-		return 1;
+		return -1;
 	}
 
 	// write to client
-	if (write_packet_to_client(cli, out) > 0) {
+	if (write_packet_to_client(cli, out) < 0) {
 		DEBUG_PRINT("failed write");
-		return 1;
+		return -1;
 	}
 
 	// destroy allocated packet
-	if (destroy_packet_struct(&out) > 0) {
+	if (destroy_packet_struct(&out) < 0) {
 		DEBUG_PRINT("failed packet destroy");
-		return 1;
+		return -1;
 	}
 
 	return 0;
@@ -164,7 +164,7 @@ int write_wordpack(struct client *cli, const pack_head head, const pack_stat sta
 	// precondition for invalid arguments
 	if (cli == NULL || head < 0 || status < 0 || control1 < 0 || control2 < 0) {
 		DEBUG_PRINT("invalid arguments");
-		return 1;
+		return -EINVAL;
 	}
 
 	// initalize packet
@@ -221,8 +221,8 @@ int write_wordpack(struct client *cli, const pack_head head, const pack_stat sta
 int read_header(struct client *cli, struct packet *pack) {
 	// precondition for invalid argument
 	if (cli == NULL || pack == NULL) {
-		DEBUG_PRINT("invalid argument");
-		return 1;
+		DEBUG_PRINT("invalid arguments");
+		return -EINVAL;
 	}
 
 	// buffer to receive header
@@ -235,20 +235,20 @@ int read_header(struct client *cli, struct packet *pack) {
 		// in case read isn't perfect
 		if (head_read < 0) {
 			DEBUG_PRINT("failed header read");
-			return 1;
+			return -errno;
 		} else if (head_read == 0) {
 			DEBUG_PRINT("socket closed");
-			return 1;
+			return -1;
 		} else {
 			DEBUG_PRINT("incomplete header read");
-			return 1;
+			return -1;
 		}
 	}
 
 	// move buffer to packet fields
-	if (split_header(pack, header) > 0) {
+	if (split_header(pack, header) < 0) {
 		DEBUG_PRINT("failed header assembly");
-		return 1;
+		return -1;
 	}
 
 	// TODO: this is very platform dependent
@@ -260,15 +260,14 @@ int parse_header(struct client *cli, struct packet *pack) {
 	// precondition for invalid arguments
 	if (cli == NULL || pack == NULL) {
 		DEBUG_PRINT("invalid arguments");
-		return 1;
+		return -EINVAL;
 	}
 
 	// parse the status
-	int status;
+	int status = 0;
 	switch (pack->status) {
 		case NULL_BYTE:
 			DEBUG_PRINT("received NULL header");
-			status = 0;
 			break;
 
 		case START_HEADER:
@@ -283,7 +282,7 @@ int parse_header(struct client *cli, struct packet *pack) {
 			// print incoming text
 			if (print_text(cli, pack) > 0) {
 				DEBUG_PRINT("failed print");
-				return 1;
+				return -1;
 			}
 			break;
 
@@ -294,7 +293,7 @@ int parse_header(struct client *cli, struct packet *pack) {
 			// print incoming enquiry
 			if (print_enquiry(cli, pack) > 0) {
 				DEBUG_PRINT("failed print");
-				return 1;
+				return -1;
 			}
 			break;
 
@@ -305,7 +304,7 @@ int parse_header(struct client *cli, struct packet *pack) {
 			// print incoming acknowledge
 			if (print_acknowledge(cli, pack) > 0) {
 				DEBUG_PRINT("failed print");
-				return 1;
+				return -1;
 			}
 			break;
 
@@ -316,7 +315,7 @@ int parse_header(struct client *cli, struct packet *pack) {
 			// print incoming wakeup
 			if (print_wakeup(cli, pack) > 0) {
 				DEBUG_PRINT("failed print");
-				return 1;
+				return -1;
 			}
 			break;
 
@@ -327,7 +326,7 @@ int parse_header(struct client *cli, struct packet *pack) {
 			// print incoming negative acknowledge
 			if (print_neg_acknowledge(cli, pack) > 0) {
 				DEBUG_PRINT("failed print");
-				return 1;
+				return -1;
 			}
 			break;
 
@@ -338,7 +337,7 @@ int parse_header(struct client *cli, struct packet *pack) {
 			// print incoming idle
 			if (print_idle(cli, pack) > 0) {
 				DEBUG_PRINT("failed print");
-				return 1;
+				return -1;
 			}
 			break;
 
@@ -349,13 +348,13 @@ int parse_header(struct client *cli, struct packet *pack) {
 			// print incoming escape
 			if (print_escape(cli, pack) > 0) {
 				DEBUG_PRINT("failed print");
-				return 1;
+				return -1;
 			}
 			break;
 
 		default: // unsupported/invalid
 			DEBUG_PRINT("received invalid header");
-			status = 1;
+			status = -1;
 			break;
 	}
 
@@ -366,7 +365,7 @@ int parse_long_header(struct client *cli, struct packet *pack) {
 	// precondition for invalid arguments
 	if (cli == NULL || pack == NULL) {
 		DEBUG_PRINT("invalid arguments");
-		return 1;
+		return -EINVAL;
 	}
 
 	int packetcount = pack->control1;
@@ -387,8 +386,8 @@ int parse_long_header(struct client *cli, struct packet *pack) {
 int parse_text(struct client *cli, struct packet *pack) {
 	// precondition for invalid arguments
 	if (cli == NULL || pack == NULL) {
-		DEBUG_PRINT("invalid argument");
-		return 1;
+		DEBUG_PRINT("invalid arguments");
+		return -EINVAL;
 	}
 
 	// translate names for readability
@@ -403,9 +402,9 @@ int parse_text(struct client *cli, struct packet *pack) {
 		if (head == NULL) {
 			DEBUG_PRINT("failed long text read");
 			if (long_len < 0) {
-				return 1; // error
+				return -1; // error
 			} else {
-				return 1; // socket closed
+				return -1; // socket closed
 			}
 		}
 
@@ -416,15 +415,15 @@ int parse_text(struct client *cli, struct packet *pack) {
 		// read normally
 		int received;
 		int remaining = count * width;
-		if (read_data(cli, pack, remaining, &received) > 0) {
+		if (read_data(cli, pack, remaining, &received) < 0) {
 			DEBUG_PRINT("failed normal read");
-			return 1;
+			return -1;
 		}
 	}
 
-	if (write_dataless(cli, 0, ACKNOWLEDGE, START_TEXT, 0) > 0) {
+	if (write_dataless(cli, 0, ACKNOWLEDGE, START_TEXT, 0) < 0) {
 		DEBUG_PRINT("failed confirm packet");
-		return 1;
+		return -1;
 	}
 
 	return 0;
@@ -454,7 +453,7 @@ char *read_long_text(struct client *cli, struct packet *pack, int *len_ptr, int 
 	// check if new data contains a stop
 	char *ptr;
 	int stop_len;
-	if (buf_contains_symbol(receive->buf, bytes_read, END_TEXT, &stop_len) > 0) {
+	if (buf_contains_symbol(receive->buf, bytes_read, END_TEXT, &stop_len) < 0) {
 		// alloc heap to store the data
 		ptr = (char *) malloc(stop_len);
 
@@ -486,7 +485,7 @@ int parse_enquiry(struct client *cli, struct packet *pack) {
 	// precondition for invalid argments
 	if (cli == NULL || pack == NULL) {
 		DEBUG_PRINT("invalid arguments");
-		return 1;
+		return -EINVAL;
 	}
 
 	switch (pack->control1) {
@@ -494,9 +493,9 @@ int parse_enquiry(struct client *cli, struct packet *pack) {
 			DEBUG_PRINT("normal enquiry");
 
 			// just return an acknowledge
-			if (write_dataless(cli, 0, ACKNOWLEDGE, ENQUIRY, 0) > 0) {
+			if (write_dataless(cli, 0, ACKNOWLEDGE, ENQUIRY, 0) < 0) {
 				DEBUG_PRINT("failed acknowledge packet");
-				return 1;
+				return -1;
 			}
 			break;
 
@@ -504,24 +503,24 @@ int parse_enquiry(struct client *cli, struct packet *pack) {
 			DEBUG_PRINT("return enquiry");
 
 			// return a enquiry signal 0
-			if (write_dataless(cli, 0, ENQUIRY, 0, 0) > 0) {
+			if (write_dataless(cli, 0, ENQUIRY, 0, 0) < 0) {
 				DEBUG_PRINT("failed enquiry return");
-				return 1;
+				return -1;
 			}
 			break;
 
 		case ENQUIRY_TIME:
 			DEBUG_PRINT("time enquiry %d wide", pack->control2);
 			// read packet data
-			if (read_data(cli, pack, pack->control2, NULL) > 0) {
+			if (read_data(cli, pack, pack->control2, NULL) < 0) {
 				DEBUG_PRINT("failed time data read");
-				return 1;
+				return -1;
 			}
 
 			// return acknowledge
-			if (write_dataless(cli, 0, ACKNOWLEDGE, ENQUIRY, 0) > 0) {
+			if (write_dataless(cli, 0, ACKNOWLEDGE, ENQUIRY, 0) < 0) {
 				DEBUG_PRINT("failed acknowledge packet");
-				return 1;
+				return -1;
 			}
 			break;
 
@@ -529,15 +528,15 @@ int parse_enquiry(struct client *cli, struct packet *pack) {
 			DEBUG_PRINT("time request");
 
 			// return time enquiry packet
-			if (write_wordpack(cli, 0, ENQUIRY, ENQUIRY_TIME, sizeof(time_t), time(NULL)) > 0) {
+			if (write_wordpack(cli, 0, ENQUIRY, ENQUIRY_TIME, sizeof(time_t), time(NULL)) < 0) {
 				DEBUG_PRINT("failed time enquiry return");
-				return 1;
+				return -1;
 			}
 			break;
 
 		default:
 			DEBUG_PRINT("invalid/unsupported control signal");
-			return 1;
+			return -1;
 	}
 
 	return 0;
@@ -547,7 +546,7 @@ int parse_acknowledge(struct client *cli, struct packet *pack) {
 	// precondition for invalid argument
 	if (cli == NULL || pack == NULL) {
 		DEBUG_PRINT("invalid arguments");
-		return 1;
+		return -EINVAL;
 	}
 
 	switch (pack->control1) {
@@ -582,7 +581,7 @@ int parse_acknowledge(struct client *cli, struct packet *pack) {
 
 		default:
 			DEBUG_PRINT("invalid/unsupported control signal");
-			return 1;
+			return -1;
 	}
 
 	return 0;
@@ -592,7 +591,7 @@ int parse_wakeup(struct client *cli, struct packet *pack) {
 	// check valid arguments
 	if (cli == NULL || pack == NULL) {
 		DEBUG_PRINT("invalid arguments");
-		return 1;
+		return -EINVAL;
 	}
 
 	// setting values of header
@@ -601,17 +600,17 @@ int parse_wakeup(struct client *cli, struct packet *pack) {
 		cli->inc_flag = NULL_BYTE;
 
 		// confirm client wake
-		if (write_dataless(cli, 0, ACKNOWLEDGE, WAKEUP, 0) > 0) {
+		if (write_dataless(cli, 0, ACKNOWLEDGE, WAKEUP, 0) < 0) {
 			DEBUG_PRINT("failed confirm packet");
-			return 1;
+			return -1;
 		}
 
 		DEBUG_PRINT("client %d now awake", cli->socket_fd);
 	} else {
 		// refuse client wake
-		if (write_dataless(cli, 0, NEG_ACKNOWLEDGE, WAKEUP, 0) > 0) {
+		if (write_dataless(cli, 0, NEG_ACKNOWLEDGE, WAKEUP, 0) < 0) {
 			DEBUG_PRINT("failed deny packet");
-			return 1;
+			return -1;
 		}
 
 		DEBUG_PRINT("client %d awake, refusing", cli->socket_fd);
@@ -624,7 +623,7 @@ int parse_neg_acknowledge(struct client *cli, struct packet *pack) {
 	// precondition for invalid argument
 	if (cli == NULL || pack == NULL) {
 		DEBUG_PRINT("invalid arguments");
-		return 1;
+		return -EINVAL;
 	}
 
 	switch (pack->control1) {
@@ -650,7 +649,7 @@ int parse_neg_acknowledge(struct client *cli, struct packet *pack) {
 
 		default: // invalid/unsupported packet status
 			DEBUG_PRINT("invalid packet %d refused", pack->control1);
-			return 1;
+			return -1;
 	}
 
 	return 0;
@@ -660,7 +659,7 @@ int parse_idle(struct client *cli, struct packet *pack) {
 	// precondition for invalid argument
 	if (cli == NULL || pack == NULL) {
 		DEBUG_PRINT("invalid arguments");
-		return 1;
+		return -EINVAL;
 	}
 
 	// setting values of header
@@ -669,17 +668,17 @@ int parse_idle(struct client *cli, struct packet *pack) {
 		cli->inc_flag = IDLE;
 
 		// confirm client idle
-		if (write_dataless(cli, 0, ACKNOWLEDGE, IDLE, 0) > 0) {
+		if (write_dataless(cli, 0, ACKNOWLEDGE, IDLE, 0) < 0) {
 			DEBUG_PRINT("failed confirm packet");
-			return 1;
+			return -1;
 		}
 
 		DEBUG_PRINT("client %d now sleeping", cli->socket_fd);
 	} else {
 		// refuse client idle
-		if (write_dataless(cli, 0, NEG_ACKNOWLEDGE, IDLE, 0) > 0) {
+		if (write_dataless(cli, 0, NEG_ACKNOWLEDGE, IDLE, 0) < 0) {
 			DEBUG_PRINT("failed deny packet");
-			return 1;
+			return -1;
 		}
 
 		DEBUG_PRINT("client %d busy, refusing", cli->socket_fd);
@@ -692,13 +691,13 @@ int parse_escape(struct client *cli, struct packet *pack) {
 	// precondition for invalid argument
 	if (cli == NULL || pack == NULL) {
 		DEBUG_PRINT("invalid arguments");
-		return 1;
+		return -EINVAL;
 	}
 
 	// confirm client escape
-	if (write_dataless(cli, 0, ACKNOWLEDGE, ESCAPE, 0) > 0) {
+	if (write_dataless(cli, 0, ACKNOWLEDGE, ESCAPE, 0) < 0) {
 		DEBUG_PRINT("failed confirm packet");
-		return 1;
+		return -1;
 	}
 	DEBUG_PRINT("shutting down client %d connection", cli->socket_fd);
 
@@ -713,34 +712,18 @@ int parse_escape(struct client *cli, struct packet *pack) {
 * Packet Utility Functions
 */
 
-int assemble_header(struct packet *pack, int head, int status, int control1, int control2) {
-	// check valid arguments
-	if (pack == NULL || head < 0 || status < 0 || control1 < 0 || control2 < 0) {
-		DEBUG_PRINT("invalid arguments");
-		return 1;
-	}
-
-	// assemble packet header with given values
-	pack->head = (char) head;
-	pack->status = (char) status;
-	pack->control1 = (char) control1;
-	pack->control2 = (char) control2;
-
-	return 0;
-}
-
-int split_header(struct packet *pack, const char *header) {
+int assemble_header(struct packet *pack, pack_head head, pack_stat status, pack_con1 control1, pack_con2 control2) {
 	// check valid arguments
 	if (pack == NULL) {
 		DEBUG_PRINT("invalid arguments");
-		return 1;
+		return -EINVAL;
 	}
 
-	// grab header from given address
-	pack->head = *header;
-	pack->status = *(header + 1);
-	pack->control1 = *(header + 2);
-	pack->control2 = *(header + 3);
+	// assemble packet header with given values
+	pack->head = head;
+	pack->status = status;
+	pack->control1 = control1;
+	pack->control2 = control2;
 
 	return 0;
 }
@@ -749,13 +732,13 @@ int assemble_body(struct buffer *buffer, const char *data, const int len) {
 	// check valid arguments
 	if (buffer == NULL || data == NULL || len < 0) {
 		DEBUG_PRINT("invalid arguments");
-		return 1;
+		return -EINVAL;
 	}
 
 	// cannot fit message in buffer
 	if (len > buffer->bufsize) {
 		DEBUG_PRINT("message too large");
-		return 1;
+		return -1;
 	}
 
 	// move data into packet
@@ -769,14 +752,14 @@ int append_buffer(struct packet *pack, const int bufsize, struct buffer **out) {
 	// check valid argument
 	if (pack == NULL || bufsize < 0) {
 		DEBUG_PRINT("invalid arguments");
-		return 1;
+		return -EINVAL;
 	}
 
 	// data section is empty
 	if (pack->data == NULL) {
-		if (init_buffer_struct(&(pack->data), bufsize) > 0) {
+		if (init_buffer_struct(&(pack->data), bufsize) < 0) {
 			DEBUG_PRINT("failed buffer init");
-			return 1;
+			return -1;
 		}
 
 		// return reference to new buffer
@@ -793,9 +776,9 @@ int append_buffer(struct packet *pack, const int bufsize, struct buffer **out) {
 	for (cur = pack->data; cur->next != NULL; cur = cur->next);
 
 	// append new empty data segment
-	if (init_buffer_struct(&(cur->next), bufsize) > 0) {
+	if (init_buffer_struct(&(cur->next), bufsize) < 0) {
 		DEBUG_PRINT("failed buffer init");
-		return 1;
+		return -1;
 	}
 
 	// return reference to new buffer
@@ -821,7 +804,7 @@ int print_text(struct client *client, struct packet *pack) {
 	// check valid arguments
 	if (client == NULL || pack == NULL || pack->status != START_TEXT) {
 		DEBUG_PRINT("invalid arguments");
-		return 1;
+		return -EINVAL;
 	}
 
 	// print prefix for message
@@ -844,7 +827,7 @@ int print_enquiry(struct client *client, struct packet *pack) {
 	// check valid arguments
 	if (client == NULL || pack == NULL || pack->status != ENQUIRY) {
 		DEBUG_PRINT("invalid arguments");
-		return 1;
+		return -EINVAL;
 	}
 
 	switch (pack->control1) {
@@ -878,13 +861,13 @@ int print_time(struct client *client, struct packet *pack) {
 	// check valid arguments
 	if (client == NULL || pack == NULL || pack->data == NULL) {
 		DEBUG_PRINT("invalid arguments");
-		return 1;
+		return -EINVAL;
 	}
 
 	// make sure incoming packet is time packet
 	if (pack->status != ENQUIRY || pack->control1 != ENQUIRY_TIME) {
 		DEBUG_PRINT("invalid packet type");
-		return 1;
+		return -1;
 	}
 
 	// print time message
@@ -900,7 +883,7 @@ int print_acknowledge(struct client *client, struct packet *pack) {
 	// check valid arguments
 	if (client == NULL || pack == NULL) {
 		DEBUG_PRINT("invalid arguments");
-		return 1;
+		return -EINVAL;
 	}
 
 	// print acknowledge contents
@@ -914,7 +897,7 @@ int print_wakeup(struct client *client, struct packet *pack) {
 	// check valid arguments
 	if (client == NULL || pack == NULL) {
 		DEBUG_PRINT("invalid arguments");
-		return 1;
+		return -EINVAL;
 	}
 
 	// print wakeup
@@ -928,7 +911,7 @@ int print_neg_acknowledge(struct client *client, struct packet *pack) {
 	// check valid arguments
 	if (client == NULL || pack == NULL) {
 		DEBUG_PRINT("invalid arguments");
-		return 1;
+		return -EINVAL;
 	}
 
 	// print negative acknowledge contents
@@ -942,7 +925,7 @@ int print_idle(struct client *client, struct packet *pack) {
 	// check valid arguments
 	if (client == NULL || pack == NULL) {
 		DEBUG_PRINT("invalid arguments");
-		return 1;
+		return -EINVAL;
 	}
 
 	// print idle contents
@@ -956,7 +939,7 @@ int print_escape(struct client *client, struct packet *pack) {
 	// check valid arguments
 	if (client == NULL || pack == NULL) {
 		DEBUG_PRINT("invalid arguments");
-		return 1;
+		return -EINVAL;
 	}
 
 	// print escape contents

@@ -3,15 +3,32 @@
 
 #include "chopconst.h"
 
-int read_to_buf(struct buffer *buffer, const int input, int *received);
+int fill_buf(struct buffer *buffer, const int input);
 
-int read_data(struct client *cli, struct packet *pack, int remaining, int *received);
+int read_data(struct client *cli, struct packet *pack, int remaining);
 
+/*
+ * Scans the given buffer for a newline sequence '\n' or '\r\n', returning the
+ * farthest index in the newline (always returns the index of the '\n'). Returns
+ * negative if no newline is found, or the given arguments are invalid.
+ */
 int find_newline(const char *str, const int len, int *location);
 
-int remove_newline(char *str, const int len, int *location);
+/*
+ * Scans the given buffer for a newline sequence '\n' or '\r\n', returning the
+ * farthest index in the newline (always returns the index of the '\n'). Also
+ * replaces the newline with a null byte in order to delimit the buffer. Returns
+ * negative if no newline is found, or the given arguments are invalid.
+ * This function is generally equivalent to a call to strtok.
+ */
+int remove_newline(char *str, const int len);
 
-int buf_contains_symbol(const char *buf, const int len, const char symbol, int *symbol_index);
+/*
+ * Consecutively scans a given buffer for a given symbol, returning the index of
+ * the symbol. If no symbol is found, or invalid arguments are provided, a
+ * negative value is returned.
+ */
+int buf_contains_symbol(const char *buf, const int len, const char symbol);
 
 /*
  * Converts the given value into its binary representation within a string.

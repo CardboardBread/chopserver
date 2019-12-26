@@ -47,8 +47,6 @@ int parse_escape(struct client *cli, struct packet *pack);
 
 int assemble_header(struct packet *pack, int head, int status, int control1, int control2);
 
-int split_header(struct packet *pack, const char *header);
-
 int assemble_body(struct buffer *buffer, const char *data, const int len);
 
 int append_buffer(struct packet *pack, const int bufsize, struct buffer **out);

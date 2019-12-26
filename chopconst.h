@@ -92,6 +92,7 @@ struct server {
 };
 
 struct client {
+	struct sockaddr_in address;
 	int socket_fd; // fd of the client
 	int server_fd; // fd of the server this client is attached to, -1 if client
 	pack_stat inc_flag; // what the client is receiving

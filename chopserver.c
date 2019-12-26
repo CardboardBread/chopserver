@@ -58,21 +58,15 @@ int main(void) {
 	}
 	DEBUG_PRINT("sigint_handler attached");
 
-	if (init_server_struct(&host, MAX_CONNECTIONS) > 0) {
+	if (init_server_struct(&host, MAX_CONNECTIONS) < 0) {
 		DEBUG_PRINT("failed server struct init");
 		exit(1);
 	}
 	DEBUG_PRINT("server struct on %d slots", MAX_CONNECTIONS);
 
-	// setup server address
-	if (init_server_addr(&(host->address), PORT) > 0) {
-		DEBUG_PRINT("failed addr init");
-		exit(1);
-	}
-	DEBUG_PRINT("addr init successful");
-
 	// setup server socket
-	if (setup_server_socket(&(host->address), &(host->server_fd), CONNECTION_QUEUE) > 0) {
+	host->server_fd = setup_server_socket(&(host->address), PORT, CONNECTION_QUEUE);
+	if (host->server_fd < 0) {
 		DEBUG_PRINT("failed server socket init");
 		exit(1);
 	}
@@ -112,7 +106,7 @@ int main(void) {
 
 			// relies on short circuting
 			if (client != NULL && FD_ISSET(client->socket_fd, &listen_fds)) {
-				if (process_request(client, &all_fds) > 0) {
+				if (process_request(client, &all_fds) < 0) {
 					return 1; // TODO: remove once failing a packet isn't really bad
 				}
 
@@ -128,7 +122,7 @@ int main(void) {
 		// accept new client
 		if (FD_ISSET(host->server_fd, &listen_fds)) {
 			int client_fd;
-			if (accept_new_client(host, &client_fd, BUFSIZE) > 0) {
+			if (accept_new_client(host, &client_fd, BUFSIZE) < 0) {
 				DEBUG_PRINT("failed accept");
 				continue;
 			}
