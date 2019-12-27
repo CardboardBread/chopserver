@@ -99,8 +99,7 @@ int main(void) {
 			if (num_read == 0) break;
 			buffer[126] = '\0';
 
-			int loc;
-			if (remove_newline(buffer, num_read, &loc) < 0) {
+			if (remove_newline(buffer, num_read) < 0) {
 				DEBUG_PRINT("buffer overflow");
 				return 1;
 			}

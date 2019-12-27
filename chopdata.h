@@ -12,7 +12,7 @@ int read_data(struct client *cli, struct packet *pack, int remaining);
  * farthest index in the newline (always returns the index of the '\n'). Returns
  * negative if no newline is found, or the given arguments are invalid.
  */
-int find_newline(const char *str, const int len, int *location);
+int find_newline(const char *str, const int len);
 
 /*
  * Scans the given buffer for a newline sequence '\n' or '\r\n', returning the

@@ -121,8 +121,8 @@ int main(void) {
 
 		// accept new client
 		if (FD_ISSET(host->server_fd, &listen_fds)) {
-			int client_fd;
-			if (accept_new_client(host, &client_fd, BUFSIZE) < 0) {
+			int client_fd = accept_new_client(host, BUFSIZE);
+			if (client_fd < 0) {
 				DEBUG_PRINT("failed accept");
 				continue;
 			}

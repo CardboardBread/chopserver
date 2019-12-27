@@ -80,7 +80,7 @@ int write_dataless(struct client *cli, const pack_head head, const pack_stat sta
 	// precondition for invalid arguments
 	if (cli == NULL) {
 		DEBUG_PRINT("invalid argument");
-		return -ENIVAL;
+		return -EINVAL;
 	}
 
 	// initalize packet
@@ -246,10 +246,7 @@ int read_header(struct client *cli, struct packet *pack) {
 	}
 
 	// move buffer to packet fields
-	if (split_header(pack, header) < 0) {
-		DEBUG_PRINT("failed header assembly");
-		return -1;
-	}
+	memmove(pack, header, HEADER_LEN);
 
 	// TODO: this is very platform dependent
 	DEBUG_PRINT("read header, style %d", packet_style(pack));
@@ -413,9 +410,9 @@ int parse_text(struct client *cli, struct packet *pack) {
 	} else {
 
 		// read normally
-		int received;
 		int remaining = count * width;
-		if (read_data(cli, pack, remaining, &received) < 0) {
+		int received = read_data(cli, pack, remaining);
+		if (received < 0) {
 			DEBUG_PRINT("failed normal read");
 			return -1;
 		}
@@ -452,8 +449,8 @@ char *read_long_text(struct client *cli, struct packet *pack, int *len_ptr, int 
 
 	// check if new data contains a stop
 	char *ptr;
-	int stop_len;
-	if (buf_contains_symbol(receive->buf, bytes_read, END_TEXT, &stop_len) < 0) {
+	int stop_len = buf_contains_symbol(receive->buf, bytes_read, END_TEXT);
+	if (stop_len < 0) {
 		// alloc heap to store the data
 		ptr = (char *) malloc(stop_len);
 
@@ -512,7 +509,7 @@ int parse_enquiry(struct client *cli, struct packet *pack) {
 		case ENQUIRY_TIME:
 			DEBUG_PRINT("time enquiry %d wide", pack->control2);
 			// read packet data
-			if (read_data(cli, pack, pack->control2, NULL) < 0) {
+			if (read_data(cli, pack, pack->control2) < 0) {
 				DEBUG_PRINT("failed time data read");
 				return -1;
 			}

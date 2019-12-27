@@ -45,7 +45,7 @@ int parse_escape(struct client *cli, struct packet *pack);
  * Packet Utility functions
  */
 
-int assemble_header(struct packet *pack, int head, int status, int control1, int control2);
+int assemble_header(struct packet *pack, pack_head head, pack_stat status, pack_con1 control1, pack_con2 control2);
 
 int assemble_body(struct buffer *buffer, const char *data, const int len);
 

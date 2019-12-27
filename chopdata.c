@@ -80,7 +80,7 @@ int read_data(struct client *cli, struct packet *pack, int remaining) {
 				return -1;
 			} else {
 				DEBUG_PRINT("incomplete data read, %d remaining", expected - bytes_read);
-				return -1
+				return -1;
 			}
 		}
 

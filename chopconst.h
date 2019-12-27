@@ -89,6 +89,7 @@ struct server {
 	struct client **clients; // array of client pointers
 	int max_connections;
 	int cur_connections;
+	int connect_queue;
 };
 
 struct client {
