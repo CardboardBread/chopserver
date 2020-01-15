@@ -71,8 +71,26 @@ int setup_server_socket(struct sockaddr_in *self, const int port, const int num_
 	return soc;
 }
 
-int accept_connection(const int listenfd) {
+int accept_connection(const int listenfd, struct sockaddr_in *peer) {
 	// check valid arguments
+	if (listenfd < MIN_FD) {
+		DEBUG_PRINT("invalid arguments");
+		return -EINVAL;
+	}
+
+	unsigned int peer_len = sizeof(*peer);
+	peer->sin_family = PF_INET;
+
+	int client_socket = accept(listenfd, peer, &peer_len);
+	if (client_socket < MIN_FD) {
+		DEBUG_PRINT("accept fail");
+		return -errno;
+	}
+
+	return client_socket;
+}
+
+int refuse_connection(const int listenfd) {
 	if (listenfd < MIN_FD) {
 		DEBUG_PRINT("invalid arguments");
 		return -EINVAL;
@@ -82,13 +100,9 @@ int accept_connection(const int listenfd) {
 	unsigned int peer_len = sizeof(peer);
 	peer.sin_family = PF_INET;
 
-	int client_socket = accept(listenfd, (struct sockaddr *) &peer, &peer_len);
-	if (client_socket < MIN_FD) {
-		DEBUG_PRINT("accept fail");
-		return -errno;
-	}
+	close(accept(listenfd, (struct sockaddr *) &peer, &peer_len)); // TODO: return a refusal message
 
-	return client_socket;
+	return 0;
 }
 
 int connect_to_server(struct sockaddr_in *addr, const char *hostname, const int port) {

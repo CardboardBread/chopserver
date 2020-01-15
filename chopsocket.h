@@ -20,6 +20,12 @@ int setup_server_socket(struct sockaddr_in *self, const int port, const int num_
 int accept_connection(const int listenfd);
 
 /*
+ * Waits for an incoming connection, immediately closing the connection.
+ * Returns 0 on success, negative on error.
+ */
+int refuse_connection(const int listenfd);
+
+/*
  * Create a socket and connect to the server indicated by the port and hostname
  */
 int connect_to_server(struct sockaddr_in *addr, const char *hostname, const int port);
