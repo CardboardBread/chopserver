@@ -9,7 +9,7 @@
  * Client/Server Management functions
  */
 
-int accept_new_client(struct server *receiver, const int bufsize);
+int accept_new_client(struct server *receiver, const size_t bufsize);
 
 int establish_server_connection(const char *address, const int port, struct client **dest, const int bufsize);
 

@@ -81,7 +81,7 @@ int accept_connection(const int listenfd, struct sockaddr_in *peer) {
 	unsigned int peer_len = sizeof(*peer);
 	peer->sin_family = PF_INET;
 
-	int client_socket = accept(listenfd, peer, &peer_len);
+	int client_socket = accept(listenfd, (struct sockaddr *) peer, &peer_len);
 	if (client_socket < MIN_FD) {
 		DEBUG_PRINT("accept fail");
 		return -errno;

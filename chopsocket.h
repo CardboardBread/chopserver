@@ -17,7 +17,7 @@ int setup_server_socket(struct sockaddr_in *self, const int port, const int num_
  * Wait for and accept a new connection.
  * Return -1 if the accept call failed.
  */
-int accept_connection(const int listenfd);
+int accept_connection(const int listenfd, struct sockaddr_in *peer);
 
 /*
  * Waits for an incoming connection, immediately closing the connection.

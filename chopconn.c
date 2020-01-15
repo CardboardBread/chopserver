@@ -17,51 +17,57 @@
  * Client/Server Management functions
  */
 
-int accept_new_client(struct server *receiver, const int bufsize) {
+int accept_new_client(struct server *receiver, const size_t bufsize) {
 	// precondition for invalid arguments
 	if (receiver == NULL || bufsize < 1) {
 		DEBUG_PRINT("invalid arguments");
 		return -EINVAL;
 	}
 
-	// blocking until client connects
-	int client_fd = accept_connection(receiver->server_fd);
+	// init new client
+	struct client *newcli;
+	if (init_client_struct(&newcli, bufsize) < 0) {
+		DEBUG_PRINT("init client fail, refusing incoming");
+		refuse_connection(receiver->server_fd);
+		return -ENOMEM;
+	}
+
+	// accept new client
+	int client_fd = accept_connection(receiver->server_fd, &(newcli->address));
 	if (client_fd < 0) {
 		DEBUG_PRINT("accept fail");
 		return client_fd;
 	}
 	DEBUG_PRINT("new client on fd %d", client_fd);
 
-	// finding an 'empty' space in the client array
+	// find space to put potential new client in
+	int destination = -1;
 	for (int i = 0; i < receiver->max_connections; i++) {
 		if (receiver->clients[i] == NULL) {
-
-			// placing new client in empty space
-			if (init_client_struct(receiver->clients + i, bufsize) < 0) {
-				DEBUG_PRINT("init client fail");
-				break;
-			}
-
-			// initialize new client
-			struct client *init = receiver->clients[i];
-			init->socket_fd = client_fd;
-			init->server_fd = receiver->server_fd;
-			init->inc_flag = 0;
-			init->out_flag = 0;
-			init->window = bufsize;
-
-			// track new client
-			receiver->cur_connections++;
-
-			DEBUG_PRINT("new client, index %d", i);
-			return client_fd;
+			destination = i;
 		}
 	}
 
-	// close the connection since we can't store it
-	close(client_fd);
-	DEBUG_PRINT("no space for new client, refusing");
-	return -ENOSPC;
+	// no empty space found
+	if (destination < 0) {
+		DEBUG_PRINT("no space for new client, refusing");
+		close(client_fd);
+		destroy_client_struct(&newcli);
+		return -ENOSPC;
+	}
+
+	// setup new client
+	receiver->clients[destination] = newcli;
+	newcli->socket_fd = client_fd;
+	newcli->server_fd = receiver->server_fd;
+	newcli->inc_flag = 0;
+	newcli->out_flag = 0;
+	newcli->window = bufsize;
+
+	// track new client
+	receiver->cur_connections++;
+	DEBUG_PRINT("new client, index %d", destination);
+	return client_fd;
 }
 
 int establish_server_connection(const char *address, const int port, struct client **dest, const int bufsize) {
