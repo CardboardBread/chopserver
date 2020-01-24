@@ -177,7 +177,7 @@ int buf_contains_symbol(const char *buf, const int len, const char symbol) {
 	int index;
 	for (index = 0; index < len; index++) {
 		if (buf[index] == symbol) {
-			DEBUG_PRINT("%c found at %d", symbol, index);
+			DEBUG_PRINT("char %d found at %d", symbol, index);
 			return index;
 		}
 	}
