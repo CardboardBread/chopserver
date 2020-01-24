@@ -393,19 +393,13 @@ int parse_text(struct client *cli, struct packet *pack) {
 
 	// signals set to unknown length read
 	if (count == 0 && width == 0) {
-		int buffers = 0;
-		int long_len;
-		char *head = read_long_text(cli, pack, &long_len, &buffers);
-		if (head == NULL) {
-			DEBUG_PRINT("failed long text read");
-			if (long_len < 0) {
-				return -1; // error
-			} else {
-				return -1; // socket closed
-			}
+		int long_len = read_long_text(cli, pack);
+		if (long_len < 0) {
+			DEBUG_PRINT("long text failed");
+			return -1;
 		}
 
-		DEBUG_PRINT("long text section length %d, %d segments", long_len, buffers);
+		DEBUG_PRINT("long text section length %d, %d segments", long_len, pack->datalen);
 		return 0;
 	} else {
 
@@ -426,56 +420,48 @@ int parse_text(struct client *cli, struct packet *pack) {
 	return 0;
 }
 
-char *read_long_text(struct client *cli, struct packet *pack, int *len_ptr, int *buffers) {
+int read_long_text(struct client *cli, struct packet *pack) {
 	// precondition for invalid arguments
-	if (cli == NULL || pack == NULL || len_ptr == NULL || buffers == NULL) {
+	if (cli == NULL || pack == NULL) {
 		DEBUG_PRINT("invalid arguments");
-		return NULL;
+		return -EINVAL;
 	}
 
-	struct buffer *receive;
-	if (append_buffer(pack, cli->window, &receive) > 0) {
-		*len_ptr = -1;
-		return NULL;
-	}
-	*buffers = *buffers + 1;
+	int found = 1;
+	int total = 0;
+	while (found) {
 
-	int bytes_read = read(cli->socket_fd, receive->buf, cli->window);
-	if (bytes_read < 0) {
-		DEBUG_PRINT("failed to read long text section");
-		*len_ptr = 0;
-		return NULL;
-	}
+		// allocate buffer to hold incoming data
+		struct buffer *receive;
+		if (append_buffer(pack, cli->window, &receive) > 0) {
+			return -ENOSPC;
+		}
 
-	// check if new data contains a stop
-	char *ptr;
-	int stop_len = buf_contains_symbol(receive->buf, bytes_read, END_TEXT);
-	if (stop_len < 0) {
-		// alloc heap to store the data
-		ptr = (char *) malloc(stop_len);
+		// read data into new buffer
+		int bytes_read = read(cli->socket_fd, receive->buf, cli->window);
+		if (bytes_read < 0) {
+			DEBUG_PRINT("failed to read long text section");
+			return -errno;
+		} else if (bytes_read == 0) {
+			DEBUG_PRINT("long text section empty");
+			return 0;
+		}
 
-		// move data onto heap, notify parent fn of length of heap data
-		memmove(ptr, receive->buf, stop_len);
-		*len_ptr = stop_len;
-	} else {
-		// recurse for rest of the data
-		int sub_len;
-		char *nptr = read_long_text(cli, pack, &sub_len, buffers);
+		total += bytes_read;
 
-		// alloc memory to hold all the data
-		ptr = (char *) malloc(bytes_read + sub_len);
-
-		// move data from here in
-		memmove(ptr, receive->buf, bytes_read);
-
-		// move data from recursion in
-		memmove(ptr + bytes_read, nptr, sub_len);
-
-		// notify parent fn of length of heap data
-		*len_ptr = bytes_read + sub_len;
+		int stop_len = buf_contains_symbol(receive->buf, bytes_read, END_TEXT);
+		if (stop_len < 0) {
+			// did not find the end of the long text
+			receive->inbuf = bytes_read;
+			found = 1; // TODO: might be extraneous
+		} else {
+			// found the end of the long text
+			receive->inbuf = stop_len;
+			found = 0;
+		}
 	}
 
-	return ptr;
+	return total;
 }
 
 int parse_enquiry(struct client *cli, struct packet *pack) {
