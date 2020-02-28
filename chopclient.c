@@ -40,12 +40,6 @@ int main(void) {
 	// mark debug statements as clientside
 	header_type = 1;
 
-	// init connection model
-	if (init_client_struct(&server_connection, BUFSIZE) < 0) {
-		DEBUG_PRINT("failed socket alloc");
-		return 1;
-	}
-
 	// connect to locally hosted server
 	if (establish_server_connection(ADDRESS, PORT, &server_connection, BUFSIZE) < 0) {
 		DEBUG_PRINT("failed connection");
