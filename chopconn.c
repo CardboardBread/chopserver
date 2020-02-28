@@ -45,6 +45,7 @@ int accept_new_client(struct server *receiver, const size_t bufsize) {
 	for (int i = 0; i < receiver->max_connections; i++) {
 		if (receiver->clients[i] == NULL) {
 			destination = i;
+			break;
 		}
 	}
 
