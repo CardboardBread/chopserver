@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <errno.h>
 
@@ -12,7 +13,7 @@
 
 int init_buffer_struct(struct buffer **target, const int size) {
 	// check valid argument
-	if (target == NULL || size < 0) {
+	if (target == NULL || size < 1) {
 		return -EINVAL;
 	}
 
@@ -68,9 +69,9 @@ int init_packet_struct(struct packet **target) {
 	return 0;
 }
 
-int init_server_struct(struct server **target, const int max_conns) {
+int init_server_struct(struct server **target, const int port, const int max_conns, const int queue_len) {
 	// check valid argument
-	if (target == NULL || max_conns < 1) {
+	if (target == NULL || max_conns < 1 || queue_len < 1) {
 		return -EINVAL;
 	}
 
@@ -83,7 +84,7 @@ int init_server_struct(struct server **target, const int max_conns) {
 
 	// allocate server client array
 	struct client **mem = (struct client **) malloc(sizeof(struct client *) * max_conns);
-	if (mem == NULL && max_conns > 0) { // in case zero clients allowed
+	if (mem == NULL) {
 		DEBUG_PRINT("malloc, memory");
 		free(init);
 		return -ENOMEM;
@@ -96,9 +97,11 @@ int init_server_struct(struct server **target, const int max_conns) {
 
 	// initialize structure fields
 	init->server_fd = -1;
+	init->server_port = port;
 	init->clients = mem;
 	init->max_connections = max_conns;
 	init->cur_connections = 0;
+	init->connect_queue = queue_len;
 
 	// set given pointer to new struct
 	*target = init;

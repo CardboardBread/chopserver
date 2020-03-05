@@ -7,8 +7,6 @@
  * Sending functions
  */
 
-int write_packet_to_client(struct client *cli, struct packet *pack);
-
 int write_dataless(struct client *cli, const pack_head head, const pack_stat status, const pack_con1 control1, const pack_con2 control2);
 
 int write_datapack(struct client *cli, const pack_head head, const pack_stat status, const pack_con1 control1, const pack_con2 control2, const char *buf, const int buflen);
@@ -18,8 +16,6 @@ int write_wordpack(struct client *cli, const pack_head head, const pack_stat sta
 /*
  * Receiving functions
  */
-
-int read_header(struct client *cli, struct packet *pack);
 
 int parse_header(struct client *cli, struct packet *pack);
 
@@ -52,21 +48,5 @@ int assemble_body(struct buffer *buffer, const char *data, const int len);
 int append_buffer(struct packet *pack, const int bufsize, struct buffer **out);
 
 int packet_style(struct packet *pack);
-
-int print_text(struct client *client, struct packet *pack);
-
-int print_enquiry(struct client *client, struct packet *pack);
-
-int print_time(struct client *client, struct packet *pack);
-
-int print_acknowledge(struct client *client, struct packet *pack);
-
-int print_wakeup(struct client *client, struct packet *pack);
-
-int print_neg_acknowledge(struct client *client, struct packet *pack);
-
-int print_idle(struct client *client, struct packet *pack);
-
-int print_escape(struct client *client, struct packet *pack);
 
 #endif

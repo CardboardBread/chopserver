@@ -7,6 +7,10 @@ int fill_buf(struct buffer *buffer, const int input);
 
 int read_data(struct client *cli, struct packet *pack, int remaining);
 
+int read_header(struct client *cli, struct packet *pack);
+
+int write_packet(struct client *cli, struct packet *pack);
+
 /*
  * Scans the given buffer for a newline sequence '\n' or '\r\n', returning the
  * farthest index in the newline (always returns the index of the '\n'). Returns

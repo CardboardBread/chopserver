@@ -159,7 +159,7 @@ int process_request(struct client *cli, fd_set *all_fds) {
 
 	// init packet for recieving
 	struct packet *pack;
-	if (init_packet_struct(&pack) > 0) {
+	if (init_packet_struct(&pack) < 0) {
 		DEBUG_PRINT("failed packet init");
 		return -ENOMEM;
 	}
@@ -178,6 +178,11 @@ int process_request(struct client *cli, fd_set *all_fds) {
 			}
 			status = parse_header(cli, pack);
 			break;
+	}
+
+	if (destroy_packet_struct(&pack) < 0) {
+	    DEBUG_PRINT("failed packet destroy");
+        return -1;
 	}
 
 	return status;
@@ -227,7 +232,7 @@ int write_buf_to_client(struct client *cli, const char *msg, const int msg_len) 
 	}
 
 	// write to client
-	if (write_packet_to_client(cli, pack) < 0) {
+	if (write_packet(cli, pack) < 0) {
 		DEBUG_PRINT("failed write");
 		return -1; // TODO: possibly capture return for better error reporting
 	}

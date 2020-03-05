@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <errno.h>
 
@@ -77,6 +78,8 @@ int read_data(struct client *cli, struct packet *pack, int remaining) {
 				return -errno;
 			} else if (bytes_read == 0) {
 				DEBUG_PRINT("socket closed");
+                cli->inc_flag = CANCEL;
+                cli->out_flag = CANCEL;
 				return -1;
 			} else {
 				DEBUG_PRINT("incomplete data read, %d remaining", expected - bytes_read);
@@ -92,6 +95,111 @@ int read_data(struct client *cli, struct packet *pack, int remaining) {
 
 	DEBUG_PRINT("data section length %d, %d segments", total, buffers);
 	return total;
+}
+
+int read_header(struct client *cli, struct packet *pack) {
+    // precondition for invalid argument
+    if (cli == NULL || pack == NULL) {
+        DEBUG_PRINT("invalid arguments");
+        return -EINVAL;
+    }
+
+    // buffer to receive header
+    char header[HEADER_LEN];
+
+    // read packet from client
+    int head_read = read(cli->socket_fd, header, HEADER_LEN);
+    if (head_read != HEADER_LEN) {
+
+        // in case read isn't perfect
+        if (head_read < 0) {
+            DEBUG_PRINT("failed header read");
+            return -errno;
+        } else if (head_read == 0) {
+            DEBUG_PRINT("socket closed");
+            cli->inc_flag = CANCEL;
+            cli->out_flag = CANCEL;
+            return -1;
+        } else {
+            DEBUG_PRINT("incomplete header read");
+            return -1;
+        }
+    }
+
+    // move buffer to packet fields
+    memmove(pack, header, HEADER_LEN);
+
+    // print incoming header
+    DEBUG_PRINT(dbg_pack, pack->head, stat_to_str(pack->status), pack->control1, pack->control2);
+
+    // TODO: this is very platform dependent
+    DEBUG_PRINT("read header, style %d, width %d", packet_style(pack), head_read);
+    return 0;
+}
+
+int write_packet(struct client *cli, struct packet *pack) {
+    // precondition for invalid arguments
+    if (cli == NULL || pack == NULL) {
+        DEBUG_PRINT("invalid arguments");
+        return -EINVAL;
+    }
+
+    // mark client outgoing flag with status
+    cli->out_flag = pack->status;
+
+    // write header packet to target
+    ssize_t head_written = write(cli->socket_fd, (void *) pack, HEADER_LEN);
+    if (head_written != HEADER_LEN) {
+        // in case write was not perfectly successful
+        if (head_written < 0) {
+            DEBUG_PRINT("failed header write");
+            return -errno;
+        } else if (head_written == 0) {
+            DEBUG_PRINT("socket closed");
+            return -1; // TODO: what to return?
+        } else {
+            DEBUG_PRINT("incomplete header write");
+            return -1; // TODO: what to return?
+        }
+    }
+
+    // loop through all buffers in packet's data section
+    int total = 0;
+    int tracker = 0;
+    ssize_t bytes_written;
+    struct buffer *segment;
+    for (segment = pack->data; segment != NULL; segment = segment->next) {
+
+        // write buffer to target (if any)
+        bytes_written = write(cli->socket_fd, segment->buf, segment->inbuf);
+        if (bytes_written != segment->inbuf) {
+            // in case write was not perfectly successful
+            if (bytes_written < 0) {
+                DEBUG_PRINT("failed data write, segment %d", tracker);
+                return -errno;
+            } else if (bytes_written == 0) {
+                DEBUG_PRINT("socket closed");
+                return -1; // TODO: what to return?
+            } else {
+                DEBUG_PRINT("incomplete data write, segment %d", tracker);
+                return -1; // TODO: what to return?
+            }
+        }
+
+        // track depth into data section, as well as total data length
+        tracker++;
+        total += bytes_written;
+    }
+
+    // demark client outgoing flag
+    cli->out_flag = 0;
+
+    // print outgoing header
+    DEBUG_PRINT(dbg_pack, pack->head, stat_to_str(pack->status), pack->control1, pack->control2);
+
+    // TODO: this is very platform dependent
+    DEBUG_PRINT("packet style %d, %d bytes header, %d bytes body", packet_style(pack), head_written, total);
+    return total;
 }
 
 int find_newline(const char *buf, const int len) {

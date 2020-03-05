@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "chopdebug.h"
+#include "chopconst.h"
 
 int header_type = 0;
 static const char *all_headers[] = {"[CLIENT %d]", "[SERVER %d]"};
@@ -91,6 +92,155 @@ void _debug_print(const char *function, const char *format, ...) {
 	va_end(args);
 	errno = errsav;
 	return;
+}
+
+int print_text(struct client *client, struct packet *pack) {
+    // check valid arguments
+    if (client == NULL || pack == NULL || pack->status != START_TEXT) {
+        DEBUG_PRINT("invalid arguments");
+        return -EINVAL;
+    }
+
+    // print prefix for message
+    printf(msg_header(), client->socket_fd);
+
+    printf(recv_text_start);
+    // print every buffer out sequentially
+    struct buffer *cur;
+    for (cur = pack->data; cur != NULL; cur = cur->next) {
+        printf(recv_text_seg, cur->inbuf, cur->buf);
+    }
+
+    // print line end for spacing
+    printf(recv_text_end);
+
+    return 0;
+}
+
+int print_enquiry(struct client *client, struct packet *pack) {
+    // check valid arguments
+    if (client == NULL || pack == NULL || pack->status != ENQUIRY) {
+        DEBUG_PRINT("invalid arguments");
+        return -EINVAL;
+    }
+
+    switch (pack->control1) {
+        case ENQUIRY_NORMAL:
+            printf(msg_header(), client->socket_fd);
+            printf(recv_ping_norm);
+            break;
+
+        case ENQUIRY_RETURN:
+            printf(msg_header(), client->socket_fd);
+            printf(recv_ping_send);
+            break;
+
+        case ENQUIRY_TIME:
+            return print_time(client, pack);
+            break;
+
+        case ENQUIRY_RTIME:
+            printf(msg_header(), client->socket_fd);
+            printf(recv_ping_time_send);
+            break;
+
+        default:
+            return 1;
+    }
+
+    return 0;
+}
+
+int print_time(struct client *client, struct packet *pack) {
+    // check valid arguments
+    if (client == NULL || pack == NULL || pack->data == NULL) {
+        DEBUG_PRINT("invalid arguments");
+        return -EINVAL;
+    }
+
+    // make sure incoming packet is time packet
+    if (pack->status != ENQUIRY || pack->control1 != ENQUIRY_TIME) {
+        DEBUG_PRINT("invalid packet type");
+        return -1;
+    }
+
+    // print time message
+    time_t recv_time;
+    memmove(&recv_time, pack->data->buf, sizeof(time_t));
+    printf(msg_header(), client->socket_fd);
+    printf(recv_ping_time, recv_time);
+
+    return 0;
+}
+
+int print_acknowledge(struct client *client, struct packet *pack) {
+    // check valid arguments
+    if (client == NULL || pack == NULL) {
+        DEBUG_PRINT("invalid arguments");
+        return -EINVAL;
+    }
+
+    // print acknowledge contents
+    printf(msg_header(), client->socket_fd);
+    printf(ackn_text, stat_to_str(pack->control1));
+
+    return 0;
+}
+
+int print_wakeup(struct client *client, struct packet *pack) {
+    // check valid arguments
+    if (client == NULL || pack == NULL) {
+        DEBUG_PRINT("invalid arguments");
+        return -EINVAL;
+    }
+
+    // print wakeup
+    printf(msg_header(), client->socket_fd);
+    printf(wakeup_text);
+
+    return 0;
+}
+
+int print_neg_acknowledge(struct client *client, struct packet *pack) {
+    // check valid arguments
+    if (client == NULL || pack == NULL) {
+        DEBUG_PRINT("invalid arguments");
+        return -EINVAL;
+    }
+
+    // print negative acknowledge contents
+    printf(msg_header(), client->socket_fd);
+    printf(neg_ackn_text, stat_to_str(pack->control1));
+
+    return 0;
+}
+
+int print_idle(struct client *client, struct packet *pack) {
+    // check valid arguments
+    if (client == NULL || pack == NULL) {
+        DEBUG_PRINT("invalid arguments");
+        return -EINVAL;
+    }
+
+    // print idle contents
+    printf(msg_header(), client->socket_fd);
+    printf(idle_text);
+
+    return 0;
+}
+
+int print_escape(struct client *client, struct packet *pack) {
+    // check valid arguments
+    if (client == NULL || pack == NULL) {
+        DEBUG_PRINT("invalid arguments");
+        return -EINVAL;
+    }
+
+    // print escape contents
+    printf(msg_header(), client->socket_fd);
+    printf(esc_text);
+
+    return 0;
 }
 
 const char *stat_to_str(char status) {

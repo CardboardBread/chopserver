@@ -85,6 +85,7 @@ struct packet {
 
 struct server {
 	int server_fd;
+	int server_port;
 	struct sockaddr_in address;
 	struct client **clients; // array of client pointers
 	int max_connections;
@@ -105,7 +106,7 @@ struct client {
  * Structure-Relevant Macros
  */
 
-#define HEADER_LEN sizeof(struct packet) - sizeof(struct buffer *) - sizeof(int)
+#define HEADER_LEN sizeof(pack_head) + sizeof(pack_stat) + sizeof(pack_con1) + sizeof(pack_con2)
 
 /*
  * Structure Management Functions
@@ -115,7 +116,7 @@ int init_buffer_struct(struct buffer **target, const int size);
 
 int init_packet_struct(struct packet **target);
 
-int init_server_struct(struct server **target, const int max_conns);
+int init_server_struct(struct server **target, const int port, const int max_conns, const int queue_len);
 
 int init_client_struct(struct client **target, const int size);
 

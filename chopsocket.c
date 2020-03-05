@@ -9,7 +9,6 @@
 
 #include "chopconst.h"
 #include "chopdebug.h"
-#include "chopsocket.h"
 
 int init_server_addr(struct sockaddr_in *addr, const int port) {
 	// check valid arguments
