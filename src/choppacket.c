@@ -127,6 +127,12 @@ int write_wordpack(struct client *cli, const pack_head head, const pack_stat sta
 
 	// create buffer to place value in
 	char buffer[sizeof(unsigned long int)];
+	char *buflower = buffer + sizeof(int);
+
+	// convert upper and lower bytes to network order
+	unsigned int netvalupper = htons((int) value);
+	int *lowerptr = ((int *) &value) + 1;
+	unsigned int netvallower = htons(*lowerptr);
 
 	// move value into buffer
 	memmove(buffer, &value, sizeof(unsigned long int));
