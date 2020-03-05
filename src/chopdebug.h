@@ -56,6 +56,8 @@ int print_neg_acknowledge(struct client *client, struct packet *pack);
 
 int print_idle(struct client *client, struct packet *pack);
 
+int print_error(struct client *client, struct packet *pack);
+
 int print_escape(struct client *client, struct packet *pack);
 
 const char *stat_to_str(char status);

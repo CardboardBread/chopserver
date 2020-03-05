@@ -41,7 +41,7 @@
 #define END_TRANSMISSION_BLOCK 23 // TODO
 #define CANCEL 24 // flag marker for closing connections, should not be sent in a packet
 #define END_OF_MEDIUM 25 // TODO
-#define SUBSTITUTE 26 // TODO
+#define SUBSTITUTE 26 // Error, notifying a client/server of an error on the sender's end
 #define ESCAPE 27 // Disconnect, waits for acknowledge (useful for cleanup)
 #define FILE_SEPARATOR 28 // TODO
 #define GROUP_SEPARATOR 29 // TODO
