@@ -246,7 +246,7 @@ int parse_header(struct client *cli, struct packet *pack) {
 			status = parse_error(cli, pack);
 
 			// print incoming error
-			if (print_error(cli, pack < 0)) {
+			if (print_error(cli, pack) < 0) {
 				DEBUG_PRINT("failed print");
 				return -1;
 			}
