@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <errno.h>
 #include <time.h>
 
 #include "chopconn.h"
@@ -10,7 +9,6 @@
 #include "chopdata.h"
 #include "chopdebug.h"
 #include "choppacket.h"
-#include "chopsocket.h"
 
 #define BUFSIZE 255
 

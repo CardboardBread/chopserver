@@ -4,8 +4,6 @@
 #include <unistd.h>
 #include "chopconst.h"
 
-//#define DEBUG 1 // TODO: remove this and place in makefile for compilation-time decision to debug
-
 /*
  * Printing Constants
  */
