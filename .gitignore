@@ -35,9 +35,6 @@
 *.i*86
 *.x86_64
 *.hex
-chopclient
-chopserver
-timeserver
 
 # Debug files
 *.dSYM/
@@ -55,8 +52,4 @@ Mkfile.old
 dkms.conf
 
 # CMake build output
-/cmake-build-debug/
-/cmake-build-debug-mingw/
-/cmake-build-debug-wsl/
-/cmake-build-default-wsl/
-/cmake-build-release-wsl/
+/cmake-build-*/

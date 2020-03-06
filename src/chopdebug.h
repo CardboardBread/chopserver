@@ -2,8 +2,7 @@
 #define __CHOPDEBUG_H__
 
 #include <unistd.h>
-
-#define DEBUG 1 // TODO: remove this and place in makefile for compilation-time decision to debug
+#include "chopconst.h"
 
 /*
  * Printing Constants
@@ -14,6 +13,7 @@ static const char dbg_head[] = "[DEBUG]: ";
 static const char dbg_fcn_head[] = "[DEBUG][%s]: ";
 static const char dbg_fcn_tail[] = "\n";
 static const char dbg_err[] = "[ERRNO %d]: %s\n";
+static const char dbg_pack[] = "PACKET: {%d:%s:%d:%d}";
 
 extern int header_type;
 static const char msg_tail[] = "\n";
@@ -42,11 +42,21 @@ static const char esc_text[] = " Requesting Disconnect\n";
  */
 void _debug_print(const char *format, const char *function, ...);
 
-#ifdef DEBUG
-#define DEBUG_PRINT(fmt, args...) _debug_print(__FUNCTION__, fmt, ## args)
-#else
-#define DEBUG_PRINT(fmt, args...) {} /* Don't do anything in release builds */
-#endif
+int print_text(struct client *client, struct packet *pack);
+
+int print_enquiry(struct client *client, struct packet *pack);
+
+int print_time(struct client *client, struct packet *pack);
+
+int print_acknowledge(struct client *client, struct packet *pack);
+
+int print_wakeup(struct client *client, struct packet *pack);
+
+int print_neg_acknowledge(struct client *client, struct packet *pack);
+
+int print_idle(struct client *client, struct packet *pack);
+
+int print_escape(struct client *client, struct packet *pack);
 
 const char *stat_to_str(char status);
 
@@ -55,5 +65,11 @@ const char *enq_cont_to_str(char control1);
 const char *pack_id_to_str(int id);
 
 const char *msg_header();
+
+#ifdef DEBUG
+#define DEBUG_PRINT(fmt, args...) _debug_print(__FUNCTION__, fmt, ## args)
+#else
+#define DEBUG_PRINT(fmt, args...) {} /* Don't do anything in release builds */
+#endif
 
 #endif

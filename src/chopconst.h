@@ -55,6 +55,15 @@
 #define MIN_FD 0
 
 /*
+ * Type Definitions
+ */
+
+typedef unsigned char pack_head;
+typedef unsigned char pack_stat;
+typedef unsigned char pack_con1;
+typedef unsigned char pack_con2;
+
+/*
  * Structures
  */
 
@@ -66,27 +75,30 @@ struct buffer {
 };
 
 struct packet {
-	char head;
-	char status;
-	char control1;
-	char control2;
+	pack_head head;
+	pack_stat status;
+	pack_con1 control1;
+	pack_con2 control2;
 	struct buffer *data;
 	int datalen;
 };
 
 struct server {
 	int server_fd;
+	int server_port;
 	struct sockaddr_in address;
 	struct client **clients; // array of client pointers
 	int max_connections;
 	int cur_connections;
+	int connect_queue;
 };
 
 struct client {
+	struct sockaddr_in address;
 	int socket_fd; // fd of the client
 	int server_fd; // fd of the server this client is attached to, -1 if client
-	char inc_flag; // what the client is receiving
-	char out_flag; // what the client is sending
+	pack_stat inc_flag; // what the client is receiving
+	pack_stat out_flag; // what the client is sending
 	int window; // how much data the client can pass at once
 };
 
@@ -94,16 +106,7 @@ struct client {
  * Structure-Relevant Macros
  */
 
-#define HEADER_LEN sizeof(struct packet) - sizeof(struct buffer *) - sizeof(int)
-
-/*
- * Unions
- */
-
-union transport {
-	struct packet packet;
-	char header[HEADER_LEN];
-};
+#define HEADER_LEN sizeof(pack_head) + sizeof(pack_stat) + sizeof(pack_con1) + sizeof(pack_con2)
 
 /*
  * Structure Management Functions
@@ -113,7 +116,7 @@ int init_buffer_struct(struct buffer **target, const int size);
 
 int init_packet_struct(struct packet **target);
 
-int init_server_struct(struct server **target, const int max_conns);
+int init_server_struct(struct server **target, const int port, const int max_conns, const int queue_len);
 
 int init_client_struct(struct client **target, const int size);
 

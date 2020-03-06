@@ -1,4 +1,6 @@
 cmake_minimum_required (VERSION 2.6)
 project (chopserver)
-add_executable(chopserver chopserver.c chopconn.c chopconst.c chopdata.c chopdebug.c choppacket.c chopsocket.c)
-add_executable(chopclient chopclient.c chopconn.c chopconst.c chopdata.c chopdebug.c choppacket.c chopsocket.c)
+set(GCC_COVERAGE_COMPILE_FLAGS "-g -Werror -Wall")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -DDEBUG")
+add_executable(chopserver src/chopserver.c src/chopconn.c src/chopconst.c src/chopdata.c src/chopdebug.c src/choppacket.c src/chopsocket.c)
+add_executable(chopclient src/chopclient.c src/chopconn.c src/chopconst.c src/chopdata.c src/chopdebug.c src/choppacket.c src/chopsocket.c)
