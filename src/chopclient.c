@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <signal.h>
 #include <time.h>
 
 #include "chopconn.h"
@@ -38,6 +39,17 @@ int main(void) {
 	// mark debug statements as clientside
 	header_type = 1;
 
+	// setup SIGINT handler
+	struct sigaction act1;
+	act1.sa_handler = sigint_handler;
+	sigemptyset(&act1.sa_mask);
+	act1.sa_flags = SA_RESTART; // ensures interrupted calls dont error out
+	if (sigaction(SIGINT, &act1, NULL) < 0) {
+		DEBUG_PRINT("sigaction: error");
+		exit(1);
+	}
+	DEBUG_PRINT("sigint_handler attached");
+
 	// connect to locally hosted server
 	if (establish_server_connection(ADDRESS, PORT, &server_connection, BUFSIZE) < 0) {
 		DEBUG_PRINT("failed connection");
@@ -58,6 +70,7 @@ int main(void) {
 		// closing connections and freeing memory before the process ends
 		if (sigint_received) {
 			DEBUG_PRINT("caught SIGINT, exiting");
+			remove_client_address(0, &server_connection);
 			exit(1);
 		}
 
@@ -77,9 +90,10 @@ int main(void) {
 
 			// if escape
 			if (is_client_status(server_connection, CANCEL)) {
-				exit(1);
-				//FD_CLR(server_connection.socket_fd, &all_fds);
-				//run = 0;
+				//exit(1);
+				FD_CLR(server_connection->socket_fd, &all_fds);
+				run = 0;
+				continue;
 			}
 		}
 
