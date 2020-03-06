@@ -70,6 +70,7 @@ int main(void) {
 		// closing connections and freeing memory before the process ends
 		if (sigint_received) {
 			DEBUG_PRINT("caught SIGINT, exiting");
+			remove_client_address(0, &server_connection);
 			exit(1);
 		}
 
@@ -89,9 +90,10 @@ int main(void) {
 
 			// if escape
 			if (is_client_status(server_connection, CANCEL)) {
-				exit(1);
-				//FD_CLR(server_connection.socket_fd, &all_fds);
-				//run = 0;
+				//exit(1);
+				FD_CLR(server_connection->socket_fd, &all_fds);
+				run = 0;
+				continue;
 			}
 		}
 
