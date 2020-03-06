@@ -41,7 +41,7 @@ int main(void) {
 	// connect to locally hosted server
 	if (establish_server_connection(ADDRESS, PORT, &server_connection, BUFSIZE) < 0) {
 		DEBUG_PRINT("failed connection");
-		return 1;
+		exit(1);
 	}
 
 	// setup fd set for selecting
@@ -72,7 +72,7 @@ int main(void) {
 		// reading from server
 		if (FD_ISSET(server_connection->socket_fd, &listen_fds)) {
 			if (process_request(server_connection, &all_fds) < 0) {
-				return 1; // TODO: remove once failing a packet isn't really bad
+				exit(1); // TODO: remove once failing a packet isn't really bad
 			}
 
 			// if escape
@@ -93,7 +93,7 @@ int main(void) {
 
 			if (remove_newline(buffer, num_read) < 0) {
 				DEBUG_PRINT("buffer overflow");
-				return 1;
+				exit(1);
 			}
 
 			// setting values of header
@@ -101,56 +101,56 @@ int main(void) {
 				// exit
 				if (write_dataless(server_connection, 0, ESCAPE, 0, 0) < 0) {
 					DEBUG_PRINT("failed packet write");
-					return 1;
+					exit(1);
 				}
 
 			} else if (strcmp(buffer, "ping") == 0) {
 				// regular ping
 				if (write_dataless(server_connection, 0, ENQUIRY, ENQUIRY_NORMAL, 0) < 0) {
 					DEBUG_PRINT("failed packet write");
-					return 1;
+					exit(1);
 				}
 
 			} else if (strcmp(buffer, "pingret") == 0) {
 				// returning ping
 				if (write_dataless(server_connection, 0, ENQUIRY, ENQUIRY_RETURN, 0) < 0) {
 					DEBUG_PRINT("failed packet write");
-					return 1;
+					exit(1);
 				}
 
 			} else if (strcmp(buffer, "pingtime") == 0) {
 				// sending time ping
 				if (write_wordpack(server_connection, 0, ENQUIRY, ENQUIRY_TIME, sizeof(time_t), time(NULL)) < 0) {
 					DEBUG_PRINT("failed packet write");
-					return 1;
+					exit(1);
 				}
 
 			} else if (strcmp(buffer, "pingtimeret") == 0) {
 				// requesting time ping
 				if (write_dataless(server_connection, 0, ENQUIRY, ENQUIRY_RTIME, 0) < 0) {
 					DEBUG_PRINT("failed packet write");
-					return 1;
+					exit(1);
 				}
 
 			} else if (strcmp(buffer, "sleep") == 0) {
 				// sleep request
 				if (write_dataless(server_connection, 0, IDLE, 0, 0) < 0) {
 					DEBUG_PRINT("failed packet write");
-					return 1;
+					exit(1);
 				}
 
 			} else if (strcmp(buffer, "wake") == 0) {
 				// wake request
 				if (write_dataless(server_connection, 0, WAKEUP, 0, 0) < 0) {
 					DEBUG_PRINT("failed packet write");
-					return 1;
+					exit(1);
 				}
 
 			} else {
 				// send user input
 				if (write_datapack(server_connection, 0, START_TEXT, 1, 127, buffer, 127) < 0) {
 					DEBUG_PRINT("failed sending user input");
-					return 1;
+					exit(1);
 				}
 				continue;
 			}
