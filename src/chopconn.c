@@ -192,6 +192,7 @@ int process_request(struct client *cli, fd_set *all_fds) {
  * Sending functions
  */
 
+/*
 int write_buf_to_client(struct client *cli, const char *msg, const int msg_len) {
 	// precondition for invalid arguments
 	if (cli == NULL || msg == NULL || msg_len < 0) {
@@ -347,6 +348,7 @@ int send_fstr_to_all(struct server *host, const char *format, ...) {
 	DEBUG_PRINT("fstr written to all");
 	return 0;
 }
+*/
 
 /*
  * Client/Server Utility Functions
