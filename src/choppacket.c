@@ -458,7 +458,7 @@ int parse_acknowledge(struct client *cli, struct packet *pack) {
 			break;
 
 		case ESCAPE:
-			// TOOD: the sender knows you're stopping
+			// TODO: the sender knows you're stopping
 			DEBUG_PRINT("escape confirmed");
 			// marking this client as closed
 			cli->inc_flag = CANCEL;
