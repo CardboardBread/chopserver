@@ -188,6 +188,34 @@ int process_request(struct client *cli, fd_set *all_fds) {
 	return status;
 }
 
+int check_clients(struct server *receiver, fd_set *all_fds, fd_set *listen_fds, int bufsize) {
+
+	// check all clients if they can read
+	for (int index = 0; index < receiver->max_connections; index++) {
+		struct client *client = receiver->clients[index];
+
+		if (client != NULL && FD_ISSET(client->socket_fd, listen_fds)) {
+			if (process_request(client, listen_fds) < 0);
+			if (is_client_status(client, CANCEL)) {
+				FD_CLR(client->socket_fd, all_fds);
+				remove_client_index(index, receiver);
+			}
+		}
+	}
+
+	// accept new client
+	if (FD_ISSET(receiver->server_fd, listen_fds)) {
+		int client_fd = accept_new_client(receiver, bufsize);
+		if (client_fd < 0) {
+			DEBUG_PRINT("failed accept");
+		}
+
+		if (client_fd > max_fd) max_fd = client_fd;
+		FD_SET(client_fd, all_fds);
+		printf(connection_accept, client_fd);
+	}
+}
+
 /*
  * Sending functions
  */

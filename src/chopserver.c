@@ -73,10 +73,9 @@ int main(void) {
 	DEBUG_PRINT("server listening on all interfaces");
 
 	// setup fd set for selecting
-	int max_fd = host->server_fd;
-	fd_set all_fds, listen_fds;
-	FD_ZERO(&all_fds);
-	FD_SET(host->server_fd, &all_fds);
+	host->select.max_fd = host->server_fd;
+	FD_ZERO(&(host->select.l_master));
+	FD_SET(host->server_fd, &(host->select.l_master));
 
 	int run = 1;
 	while (run) {
@@ -89,15 +88,18 @@ int main(void) {
 		}
 
 		// selecting
-		listen_fds = all_fds;
-		int nready = select(max_fd + 1, &listen_fds, NULL, NULL, NULL);
-		if (nready < 0) {
-			if (errno == EINTR) {
-				continue;
-			} else {
+		host->select.l_modify = host->select.l_master;
+		int nready = select(host->select.max_fd + 1, &(host->select.l_modify), NULL, NULL, NULL);
+		switch (nready) {
+			case -1:
 				DEBUG_PRINT("failed select");
 				exit(1);
-			}
+			case 0:
+				DEBUG_PRINT("interrupted select");
+				break;
+			default:
+				DEBUG_PRINT("%d clients ready", nready);
+				break;
 		}
 
 		// check all clients if they can read
@@ -105,14 +107,14 @@ int main(void) {
 			struct client *client = host->clients[index];
 
 			// relies on short circuting
-			if (client != NULL && FD_ISSET(client->socket_fd, &listen_fds)) {
-				if (process_request(client, &all_fds) < 0) {
+			if (client != NULL && FD_ISSET(client->socket_fd, &(host->select.l_modify))) {
+				if (process_request(client, &(host->select.l_master)) < 0) {
 					//exit(1); // TODO: remove once failing a packet isn't really bad
 				}
 
 				// if a client requested a cancel
 				if (is_client_status(client, CANCEL)) {
-					FD_CLR(client->socket_fd, &all_fds);
+					FD_CLR(client->socket_fd, &(host->select.l_master));
 					printf(client_closed, client->socket_fd);
 					remove_client_index(index, host);
 				}
@@ -120,15 +122,15 @@ int main(void) {
 		}
 
 		// accept new client
-		if (FD_ISSET(host->server_fd, &listen_fds)) {
+		if (FD_ISSET(host->server_fd, &(host->select.l_modify))) {
 			int client_fd = accept_new_client(host, BUFSIZE);
 			if (client_fd < 0) {
 				DEBUG_PRINT("failed accept");
 				continue;
 			}
 
-			if (client_fd > max_fd) max_fd = client_fd;
-			FD_SET(client_fd, &all_fds);
+			if (client_fd > host->select.max_fd) host->select.max_fd = client_fd;
+			FD_SET(client_fd, &(host->select.l_master));
 			printf(connection_accept, client_fd);
 		}
 	}

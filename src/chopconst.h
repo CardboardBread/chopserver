@@ -67,6 +67,12 @@ typedef unsigned char pack_con2;
  * Structures
  */
 
+struct select_set {
+	int max_fd;
+	fd_set l_master;
+	fd_set l_modify;
+};
+
 struct buffer {
 	char *buf;
 	int inbuf;
@@ -86,6 +92,7 @@ struct packet {
 struct server {
 	int server_fd;
 	int server_port;
+	struct select_set select;
 	struct sockaddr_in address;
 	struct client **clients; // array of client pointers
 	int max_connections;
@@ -94,6 +101,7 @@ struct server {
 };
 
 struct client {
+	struct select_set select;
 	struct sockaddr_in address;
 	int socket_fd; // fd of the client
 	int server_fd; // fd of the server this client is attached to, -1 if client

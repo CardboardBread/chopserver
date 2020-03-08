@@ -77,9 +77,16 @@ int main(void) {
 		// selecting
 		listen_fds = all_fds;
 		int nready = select(max_fd + 1, &listen_fds, NULL, NULL, NULL);
-		if (nready < 0) {
-			DEBUG_PRINT("select");
-			exit(1);
+		switch (nready) {
+			case -1:
+				DEBUG_PRINT("failed select");
+				exit(1);
+			case 0:
+				DEBUG_PRINT("interrupted select");
+				break;
+			default:
+				DEBUG_PRINT("client ready");
+				break;
 		}
 
 		// reading from server
