@@ -17,7 +17,7 @@ int remove_client_index(int client_index, struct server *host);
 
 int remove_client_address(int client_index, struct client **target);
 
-int process_request(struct client *cli, fd_set *all_fds);
+int process_request(struct client *cli);
 
 /*
  * Sending functions

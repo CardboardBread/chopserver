@@ -150,9 +150,9 @@ int remove_client_address(const int client_index, struct client **target) {
 	return 0;
 }
 
-int process_request(struct client *cli, fd_set *all_fds) {
+int process_request(struct client *cli) {
 	// precondition for invalid arguments
-	if (cli == NULL || all_fds == NULL) {
+	if (cli == NULL) {
 		DEBUG_PRINT("invalid arguments");
 		return -EINVAL;
 	}
