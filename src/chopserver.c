@@ -106,7 +106,7 @@ int main(void) {
 
 			// relies on short circuting
 			if (client != NULL && FD_ISSET(client->socket_fd, &listen_fds)) {
-				if (process_request(client, &all_fds) < 0) {
+				if (process_request(client) < 0) {
 					//exit(1); // TODO: remove once failing a packet isn't really bad
 				}
 

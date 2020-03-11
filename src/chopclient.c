@@ -84,7 +84,7 @@ int main(void) {
 
 		// reading from server
 		if (FD_ISSET(server_connection->socket_fd, &listen_fds)) {
-			if (process_request(server_connection, &all_fds) < 0) {
+			if (process_request(server_connection) < 0) {
 				exit(1); // TODO: remove once failing a packet isn't really bad
 			}
 
@@ -103,7 +103,7 @@ int main(void) {
 		if (FD_ISSET(STDIN_FILENO, &listen_fds)) {
 			num_read = read(STDIN_FILENO, buffer, 126);
 			if (num_read == 0) break;
-			buffer[126] = '\0';
+			buffer[num_read] ='\0';
 
 			if (remove_newline(buffer, num_read) < 0) {
 				DEBUG_PRINT("buffer overflow");
@@ -162,7 +162,7 @@ int main(void) {
 
 			} else {
 				// send user input
-				if (write_datapack(server_connection, 0, START_TEXT, 1, 127, buffer, 127) < 0) {
+				if (write_datapack(server_connection, 0, START_TEXT, 1, num_read, buffer, num_read) < 0) {
 					DEBUG_PRINT("failed sending user input");
 					exit(1);
 				}
