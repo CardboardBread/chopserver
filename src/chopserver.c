@@ -114,6 +114,17 @@ int main(void) {
 				DEBUG_PRINT("failed select");
 				exit(1);
 			}
+		} else if (nready == 0) {
+			DEBUG_PRINT("timeout reached, resetting");
+
+			// send time to all clients
+			for (int i = 0; i < host->max_connections; i++) {
+				if (host->clients[i] != NULL) {
+					if (write_wordpack(host->clients[i], 0, ENQUIRY, ENQUIRY_TIME, sizeof(time_t), time(NULL)) < 0) {
+						DEBUG_PRINT("failed time update to client %d", host->clients[i]->socket_fd);
+					}
+				}
+			}
 		}
 
 		// check all clients if they can read
