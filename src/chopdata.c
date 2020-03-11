@@ -305,3 +305,39 @@ void char_to_bin(char value, char *ret) {
 	}
 	ret[8] = '\0';
 }
+
+int consolidate_packet(struct packet *pack, struct buffer **dest) {
+	// check valid inputs
+	if (pack == NULL) {
+		DEBUG_PRINT("invalid arguments");
+		return -EINVAL;
+	}
+
+	// loop through the segments for the total amount of data
+	int total = HEADER_LEN;
+	struct buffer *cur;
+	for (cur = pack->data; cur != NULL; cur = cur->next) {
+		total += cur->inbuf;
+	}
+
+	// create destination for packet
+	if (init_buffer_struct(dest, total) < 0) {
+		return -ENOMEM;
+	}
+	struct buffer *init = *dest;
+
+	// mark destination elements;
+	init->inbuf = HEADER_LEN + total;
+
+	// copy header elements into beginning
+	memmove(init->buf, pack, HEADER_LEN);
+
+	// copy body into remainder
+	char *depth = init->buf + HEADER_LEN;
+	for (cur = pack->data; cur != NULL; cur = cur->next) {
+		memmove(depth, cur->buf, cur->bufsize);
+		depth += cur->inbuf;
+	}
+
+	return 0;
+}
