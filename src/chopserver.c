@@ -5,6 +5,7 @@
 #include <signal.h>
 #include <stdarg.h>
 #include <errno.h>
+#include <time.h>
 
 #include "chopconn.h"
 #include "chopconst.h"
@@ -38,6 +39,14 @@ void sigint_handler(int code);
 void sigint_handler(int code) {
 	DEBUG_PRINT("received SIGINT, setting flag");
 	sigint_received = 1;
+}
+
+time_t next_minute(time_t curr_second) {
+	time_t curr_minute = curr_second / 60;
+	time_t next_minute = curr_minute + 1;
+	time_t remaining = next_minute * 60 - curr_second;
+	DEBUG_PRINT("%ld seconds left to the minute", remaining);
+	return remaining;
 }
 
 int main(void) {
@@ -78,9 +87,16 @@ int main(void) {
 	FD_ZERO(&all_fds);
 	FD_SET(host->server_fd, &all_fds);
 
+	// setup timeout
+	struct timeval timeout;
+
 	int run = 1;
 	while (run) {
 		printf("\n");
+
+		// setup timeout for time until next minute
+		timeout.tv_sec = next_minute(time(NULL));
+		timeout.tv_usec = 0;
 
 		// closing connections and freeing memory before the process ends
 		if (sigint_received) {
@@ -90,13 +106,24 @@ int main(void) {
 
 		// selecting
 		listen_fds = all_fds;
-		int nready = select(max_fd + 1, &listen_fds, NULL, NULL, NULL);
+		int nready = select(max_fd + 1, &listen_fds, NULL, NULL, &timeout);
 		if (nready < 0) {
 			if (errno == EINTR) {
 				continue;
 			} else {
 				DEBUG_PRINT("failed select");
 				exit(1);
+			}
+		} else if (nready == 0) {
+			DEBUG_PRINT("timeout reached, resetting");
+
+			// send time to all clients
+			for (int i = 0; i < host->max_connections; i++) {
+				if (host->clients[i] != NULL) {
+					if (write_wordpack(host->clients[i], 0, ENQUIRY, ENQUIRY_TIME, sizeof(time_t), time(NULL)) < 0) {
+						DEBUG_PRINT("failed time update to client %d", host->clients[i]->socket_fd);
+					}
+				}
 			}
 		}
 
