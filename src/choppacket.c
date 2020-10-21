@@ -247,6 +247,17 @@ int parse_header(struct client *cli, struct packet *pack) {
 			}
 			break;
 
+		case SUBSTITUTE:
+			DEBUG_PRINT("received error header");
+			status = parse_error(cli, pack);
+
+			// print incoming error
+			if (print_error(cli, pack) < 0) {
+				DEBUG_PRINT("failed print");
+				return -1;
+			}
+			break;
+
 		case ESCAPE:
 			DEBUG_PRINT("received escape header");
 			status = parse_escape(cli, pack);
@@ -464,7 +475,7 @@ int parse_acknowledge(struct client *cli, struct packet *pack) {
 			break;
 
 		case ESCAPE:
-			// TOOD: the sender knows you're stopping
+			// TODO: the sender knows you're stopping
 			DEBUG_PRINT("escape confirmed");
 			// marking this client as closed
 			cli->inc_flag = CANCEL;
@@ -575,6 +586,23 @@ int parse_idle(struct client *cli, struct packet *pack) {
 
 		DEBUG_PRINT("client %d busy, refusing", cli->socket_fd);
 	}
+
+	return 0;
+}
+
+int parse_error(struct client *cli, struct packet *pack) {
+	// precondition for invalid argument
+	if (cli == NULL || pack == NULL) {
+		DEBUG_PRINT("invalid arguments");
+		return -EINVAL;
+	}
+
+	// confirm error
+	if (write_dataless(cli, 0, ACKNOWLEDGE, SUBSTITUTE, 0) < 0) {
+		DEBUG_PRINT("failed confirm packet");
+		return -1;
+	}
+	DEBUG_PRINT("client %d encountered error", cli->socket_fd);
 
 	return 0;
 }
