@@ -32,6 +32,14 @@ void sigint_handler(int code) {
 	sigint_received = 1;
 }
 
+time_t next_minute(time_t curr_second) {
+	time_t curr_minute = curr_second / 60;
+	time_t next_minute = curr_minute + 1;
+	time_t remaining = next_minute * 60 - curr_second;
+	DEBUG_PRINT("%ld seconds left to the minute", remaining);
+	return remaining;
+}
+
 int main(void) {
 	// Reset SIGINT received flag.
 	sigint_received = 0;
@@ -63,9 +71,16 @@ int main(void) {
 	FD_SET(server_connection->socket_fd, &all_fds);
 	FD_SET(STDIN_FILENO, &all_fds);
 
+	// setup timeout
+	struct timeval timeout;
+
 	int run = 1;
 	while (run) {
 		printf("\n");
+
+		// setup timeout for time until next minute
+		timeout.tv_sec = next_minute(time(NULL));
+		timeout.tv_usec = 0;
 
 		// closing connections and freeing memory before the process ends
 		if (sigint_received) {
@@ -76,10 +91,16 @@ int main(void) {
 
 		// selecting
 		listen_fds = all_fds;
-		int nready = select(max_fd + 1, &listen_fds, NULL, NULL, NULL);
+		int nready = select(max_fd + 1, &listen_fds, NULL, NULL, &timeout);
 		if (nready < 0) {
 			DEBUG_PRINT("select");
 			exit(1);
+		} if (nready == 0) {
+			DEBUG_PRINT("timeout reached, resetting");
+
+			if (write_wordpack(server_connection, 0, ENQUIRY, ENQUIRY_TIME, sizeof(time_t), time(NULL)) < 0) {
+				DEBUG_PRINT("failed time update to server");
+			}
 		}
 
 		// reading from server
