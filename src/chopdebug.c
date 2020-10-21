@@ -8,7 +8,7 @@
 #include "chopconst.h"
 
 int header_type = 0;
-static const char *all_headers[] = {"[CLIENT %d]", "[SERVER %d]"};
+static const char *all_headers[] = {"[CLIENT %d]: ", "[SERVER %d]: "};
 
 /*
  * Header-to-String Section
@@ -81,12 +81,36 @@ void _debug_print(const char *function, const char *format, ...) {
 	// printing argument
 	dprintf(debug_fd, dbg_fcn_head, function);
 	vdprintf(debug_fd, format, args);
-	dprintf(debug_fd, dbg_fcn_tail);
+	dprintf(debug_fd, msg_tail);
 
 	// in case errno is nonzero
 	if (errsav > 0) {
 		dprintf(debug_fd, dbg_err, errsav, strerror(errsav));
 	}
+
+	// cleaning up
+	va_end(args);
+	errno = errsav;
+	return;
+}
+
+void _message_print(int socketfd, const char *format, ...) {
+	// check valid arguments
+	if (format == NULL) {
+		return;
+	}
+
+	// saving errno
+	int errsav = errno;
+
+	// capturing variable argument list
+	va_list args;
+	va_start(args, format);
+
+	// printing argument
+	dprintf(msg_fd, msg_header(), socketfd);
+	vdprintf(msg_fd, format, args);
+	dprintf(msg_fd, msg_tail);
 
 	// cleaning up
 	va_end(args);
@@ -126,13 +150,11 @@ int print_enquiry(struct client *client, struct packet *pack) {
 
     switch (pack->control1) {
         case ENQUIRY_NORMAL:
-            printf(msg_header(), client->socket_fd);
-            printf(recv_ping_norm);
+			MESSAGE_PRINT(client->socket_fd, recv_ping_norm);
             break;
 
         case ENQUIRY_RETURN:
-            printf(msg_header(), client->socket_fd);
-            printf(recv_ping_send);
+			MESSAGE_PRINT(client->socket_fd, recv_ping_send);
             break;
 
         case ENQUIRY_TIME:
@@ -140,8 +162,7 @@ int print_enquiry(struct client *client, struct packet *pack) {
             break;
 
         case ENQUIRY_RTIME:
-            printf(msg_header(), client->socket_fd);
-            printf(recv_ping_time_send);
+			MESSAGE_PRINT(client->socket_fd, recv_ping_time_send);
             break;
 
         default:
@@ -167,8 +188,7 @@ int print_time(struct client *client, struct packet *pack) {
     // print time message
     time_t recv_time;
     memmove(&recv_time, pack->data->buf, sizeof(time_t));
-    printf(msg_header(), client->socket_fd);
-    printf(recv_ping_time, recv_time);
+	MESSAGE_PRINT(client->socket_fd, recv_ping_time, recv_time);
 
     return 0;
 }
@@ -181,8 +201,7 @@ int print_acknowledge(struct client *client, struct packet *pack) {
     }
 
     // print acknowledge contents
-    printf(msg_header(), client->socket_fd);
-    printf(ackn_text, stat_to_str(pack->control1));
+	MESSAGE_PRINT(client->socket_fd, ackn_text, stat_to_str(pack->control1));
 
     return 0;
 }
@@ -195,8 +214,7 @@ int print_wakeup(struct client *client, struct packet *pack) {
     }
 
     // print wakeup
-    printf(msg_header(), client->socket_fd);
-    printf(wakeup_text);
+    MESSAGE_PRINT(client->socket_fd, wakeup_text);
 
     return 0;
 }
@@ -209,8 +227,7 @@ int print_neg_acknowledge(struct client *client, struct packet *pack) {
     }
 
     // print negative acknowledge contents
-    printf(msg_header(), client->socket_fd);
-    printf(neg_ackn_text, stat_to_str(pack->control1));
+    MESSAGE_PRINT(client->socket_fd, neg_ackn_text, stat_to_str(pack->control1));
 
     return 0;
 }
@@ -223,8 +240,7 @@ int print_idle(struct client *client, struct packet *pack) {
     }
 
     // print idle contents
-    printf(msg_header(), client->socket_fd);
-    printf(idle_text);
+    MESSAGE_PRINT(client->socket_fd, idle_text);
 
     return 0;
 }
@@ -250,8 +266,7 @@ int print_escape(struct client *client, struct packet *pack) {
     }
 
     // print escape contents
-    printf(msg_header(), client->socket_fd);
-    printf(esc_text);
+    MESSAGE_PRINT(client->socket_fd, esc_text);
 
     return 0;
 }
