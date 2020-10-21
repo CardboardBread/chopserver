@@ -9,21 +9,21 @@
  * Client/Server Management functions
  */
 
-int accept_new_client(struct server *receiver, const size_t bufsize);
+int accept_new_client(struct server *receiver, size_t bufsize);
 
-int establish_server_connection(const char *address, const int port, struct client **dest, const int bufsize);
+int establish_server_connection(const char *address, int port, struct client **dest, int bufsize);
 
-int remove_client_index(const int client_index, struct server *host);
+int remove_client_index(int client_index, struct server *host);
 
-int remove_client_address(const int client_index, struct client **target);
+int remove_client_address(int client_index, struct client **target);
 
-int process_request(struct client *cli, fd_set *all_fds);
+int process_request(struct client *cli);
 
 /*
  * Sending functions
  */
 
-int write_buf_to_client(struct client *cli, const char *msg, const int msg_len);
+int write_buf_to_client(struct client *cli, const char *msg, int msg_len);
 
 int send_str_to_all(struct server *host, const char *str);
 
@@ -37,7 +37,7 @@ int send_fstr_to_client(struct client *cli, const char *format, ...);
  * Client/Server Utility functions
  */
 
-int is_client_status(struct client *cli, const int status);
+int is_client_status(struct client *cli, int status);
 
 int is_address(const char *str);
 

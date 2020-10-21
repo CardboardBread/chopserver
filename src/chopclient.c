@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <signal.h>
 #include <time.h>
 
 #include "chopconn.h"
@@ -31,6 +32,14 @@ void sigint_handler(int code) {
 	sigint_received = 1;
 }
 
+time_t next_minute(time_t curr_second) {
+	time_t curr_minute = curr_second / 60;
+	time_t next_minute = curr_minute + 1;
+	time_t remaining = next_minute * 60 - curr_second;
+	DEBUG_PRINT("%ld seconds left to the minute", remaining);
+	return remaining;
+}
+
 int main(void) {
 	// Reset SIGINT received flag.
 	sigint_received = 0;
@@ -38,10 +47,21 @@ int main(void) {
 	// mark debug statements as clientside
 	header_type = 1;
 
+	// setup SIGINT handler
+	struct sigaction act1;
+	act1.sa_handler = sigint_handler;
+	sigemptyset(&act1.sa_mask);
+	act1.sa_flags = SA_RESTART; // ensures interrupted calls dont error out
+	if (sigaction(SIGINT, &act1, NULL) < 0) {
+		DEBUG_PRINT("sigaction: error");
+		exit(1);
+	}
+	DEBUG_PRINT("sigint_handler attached");
+
 	// connect to locally hosted server
 	if (establish_server_connection(ADDRESS, PORT, &server_connection, BUFSIZE) < 0) {
 		DEBUG_PRINT("failed connection");
-		return 1;
+		exit(1);
 	}
 
 	// setup fd set for selecting
@@ -51,35 +71,50 @@ int main(void) {
 	FD_SET(server_connection->socket_fd, &all_fds);
 	FD_SET(STDIN_FILENO, &all_fds);
 
+	// setup timeout
+	struct timeval timeout;
+
 	int run = 1;
 	while (run) {
 		printf("\n");
 
+		// setup timeout for time until next minute
+		timeout.tv_sec = next_minute(time(NULL));
+		timeout.tv_usec = 0;
+
 		// closing connections and freeing memory before the process ends
 		if (sigint_received) {
 			DEBUG_PRINT("caught SIGINT, exiting");
+			remove_client_address(0, &server_connection);
 			exit(1);
 		}
 
 		// selecting
 		listen_fds = all_fds;
-		int nready = select(max_fd + 1, &listen_fds, NULL, NULL, NULL);
+		int nready = select(max_fd + 1, &listen_fds, NULL, NULL, &timeout);
 		if (nready < 0) {
 			DEBUG_PRINT("select");
 			exit(1);
+		} if (nready == 0) {
+			DEBUG_PRINT("timeout reached, resetting");
+
+			if (write_wordpack(server_connection, 0, ENQUIRY, ENQUIRY_TIME, sizeof(time_t), time(NULL)) < 0) {
+				DEBUG_PRINT("failed time update to server");
+			}
 		}
 
 		// reading from server
 		if (FD_ISSET(server_connection->socket_fd, &listen_fds)) {
-			if (process_request(server_connection, &all_fds) < 0) {
-				return 1; // TODO: remove once failing a packet isn't really bad
+			if (process_request(server_connection) < 0) {
+				exit(1); // TODO: remove once failing a packet isn't really bad
 			}
 
 			// if escape
 			if (is_client_status(server_connection, CANCEL)) {
-				exit(1);
-				//FD_CLR(server_connection.socket_fd, &all_fds);
-				//run = 0;
+				//exit(1);
+				FD_CLR(server_connection->socket_fd, &all_fds);
+				run = 0;
+				continue;
 			}
 		}
 
@@ -89,11 +124,11 @@ int main(void) {
 		if (FD_ISSET(STDIN_FILENO, &listen_fds)) {
 			num_read = read(STDIN_FILENO, buffer, 126);
 			if (num_read == 0) break;
-			buffer[126] = '\0';
+			buffer[num_read] ='\0';
 
 			if (remove_newline(buffer, num_read) < 0) {
 				DEBUG_PRINT("buffer overflow");
-				return 1;
+				exit(1);
 			}
 
 			// setting values of header
@@ -101,56 +136,56 @@ int main(void) {
 				// exit
 				if (write_dataless(server_connection, 0, ESCAPE, 0, 0) < 0) {
 					DEBUG_PRINT("failed packet write");
-					return 1;
+					exit(1);
 				}
 
 			} else if (strcmp(buffer, "ping") == 0) {
 				// regular ping
 				if (write_dataless(server_connection, 0, ENQUIRY, ENQUIRY_NORMAL, 0) < 0) {
 					DEBUG_PRINT("failed packet write");
-					return 1;
+					exit(1);
 				}
 
 			} else if (strcmp(buffer, "pingret") == 0) {
 				// returning ping
 				if (write_dataless(server_connection, 0, ENQUIRY, ENQUIRY_RETURN, 0) < 0) {
 					DEBUG_PRINT("failed packet write");
-					return 1;
+					exit(1);
 				}
 
 			} else if (strcmp(buffer, "pingtime") == 0) {
 				// sending time ping
 				if (write_wordpack(server_connection, 0, ENQUIRY, ENQUIRY_TIME, sizeof(time_t), time(NULL)) < 0) {
 					DEBUG_PRINT("failed packet write");
-					return 1;
+					exit(1);
 				}
 
 			} else if (strcmp(buffer, "pingtimeret") == 0) {
 				// requesting time ping
 				if (write_dataless(server_connection, 0, ENQUIRY, ENQUIRY_RTIME, 0) < 0) {
 					DEBUG_PRINT("failed packet write");
-					return 1;
+					exit(1);
 				}
 
 			} else if (strcmp(buffer, "sleep") == 0) {
 				// sleep request
 				if (write_dataless(server_connection, 0, IDLE, 0, 0) < 0) {
 					DEBUG_PRINT("failed packet write");
-					return 1;
+					exit(1);
 				}
 
 			} else if (strcmp(buffer, "wake") == 0) {
 				// wake request
 				if (write_dataless(server_connection, 0, WAKEUP, 0, 0) < 0) {
 					DEBUG_PRINT("failed packet write");
-					return 1;
+					exit(1);
 				}
 
 			} else {
 				// send user input
-				if (write_datapack(server_connection, 0, START_TEXT, 1, 127, buffer, 127) < 0) {
+				if (write_datapack(server_connection, 0, START_TEXT, 1, num_read, buffer, num_read) < 0) {
 					DEBUG_PRINT("failed sending user input");
-					return 1;
+					exit(1);
 				}
 				continue;
 			}

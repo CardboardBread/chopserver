@@ -112,13 +112,13 @@ struct client {
  * Structure Management Functions
  */
 
-int init_buffer_struct(struct buffer **target, const int size);
+int init_buffer_struct(struct buffer **target, int size);
 
 int init_packet_struct(struct packet **target);
 
-int init_server_struct(struct server **target, const int port, const int max_conns, const int queue_len);
+int init_server_struct(struct server **target, int port, int max_conns, int queue_len);
 
-int init_client_struct(struct client **target, const int size);
+int init_client_struct(struct client **target, int size);
 
 int destroy_buffer_struct(struct buffer **target);
 
