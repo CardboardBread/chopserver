@@ -35,6 +35,8 @@ int parse_neg_acknowledge(struct client *cli, struct packet *pack);
 
 int parse_idle(struct client *cli, struct packet *pack);
 
+int parse_error(struct client *cli, struct packet *pack);
+
 int parse_escape(struct client *cli, struct packet *pack);
 
 /*
