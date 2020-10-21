@@ -127,6 +127,12 @@ int write_wordpack(struct client *cli, const pack_head head, const pack_stat sta
 
 	// create buffer to place value in
 	char buffer[sizeof(unsigned long int)];
+	char *buflower = buffer + sizeof(int);
+
+	// convert upper and lower bytes to network order
+	unsigned int netvalupper = htons((int) value);
+	int *lowerptr = ((int *) &value) + 1;
+	unsigned int netvallower = htons(*lowerptr);
 
 	// move value into buffer
 	memmove(buffer, &value, sizeof(unsigned long int));
@@ -236,6 +242,17 @@ int parse_header(struct client *cli, struct packet *pack) {
 
 			// print incoming idle
 			if (print_idle(cli, pack) < 0) {
+				DEBUG_PRINT("failed print");
+				return -1;
+			}
+			break;
+
+		case SUBSTITUTE:
+			DEBUG_PRINT("received error header");
+			status = parse_error(cli, pack);
+
+			// print incoming error
+			if (print_error(cli, pack) < 0) {
 				DEBUG_PRINT("failed print");
 				return -1;
 			}
@@ -569,6 +586,23 @@ int parse_idle(struct client *cli, struct packet *pack) {
 
 		DEBUG_PRINT("client %d busy, refusing", cli->socket_fd);
 	}
+
+	return 0;
+}
+
+int parse_error(struct client *cli, struct packet *pack) {
+	// precondition for invalid argument
+	if (cli == NULL || pack == NULL) {
+		DEBUG_PRINT("invalid arguments");
+		return -EINVAL;
+	}
+
+	// confirm error
+	if (write_dataless(cli, 0, ACKNOWLEDGE, SUBSTITUTE, 0) < 0) {
+		DEBUG_PRINT("failed confirm packet");
+		return -1;
+	}
+	DEBUG_PRINT("client %d encountered error", cli->socket_fd);
 
 	return 0;
 }

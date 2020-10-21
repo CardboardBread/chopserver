@@ -245,6 +245,19 @@ int print_idle(struct client *client, struct packet *pack) {
     return 0;
 }
 
+int print_error(struct client *client, struct packet *pack) {
+	// check valid arguments
+	if (client == NULL || pack == NULL) {
+		DEBUG_PRINT("invalid arguments");
+		return -EINVAL;
+	}
+
+	// print error contents
+	printf(dbg_err, pack->control1, strerror(pack->control1));
+
+	return 0;
+}
+
 int print_escape(struct client *client, struct packet *pack) {
     // check valid arguments
     if (client == NULL || pack == NULL) {
