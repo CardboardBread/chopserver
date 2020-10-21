@@ -42,4 +42,12 @@ int buf_contains_symbol(const char *buf, int len, char symbol);
  */
 void char_to_bin(char value, char *ret);
 
+/*
+ * Takes a given packet and copies it into a single space in memory, by looking
+ * through all the segments and allocating a single chunk of memory that can hold
+ * all of the data. the first few bytes are reserved for the header and will be
+ * of its length, and the rest (if there is any) will be the
+ */
+int consolidate_packet(struct packet *pack, struct buffer **dest);
+
 #endif
