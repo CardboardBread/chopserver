@@ -10,10 +10,9 @@
 
 static const int debug_fd = STDERR_FILENO;
 static const int msg_fd = STDOUT_FILENO;
-static const char dbg_head[] = "[DEBUG]: ";
 static const char dbg_fcn_head[] = "[DEBUG][%s]: ";
 static const char dbg_err[] = "[ERRNO %d]: %s\n";
-static const char dbg_pack[] = "PACKET: {%d:%s:%d:%d}";
+static const char dbg_pack[] = "PACKET{%d:%s:%d:%d}";
 static const char msg_tail[] = "\n";
 
 extern int header_type;
@@ -75,12 +74,8 @@ const char *msg_header();
 #define DEBUG_PRINT(fmt, args...) {} /* Don't do anything in non-debug builds */
 #endif
 
-#define RELEASE 7
-
-#ifdef RELEASE
 #define MESSAGE_PRINT(fd, fmt, args...) _message_print(fd, fmt, ## args)
-#else
-#define MESSAGE_PRINT(fmt, args...) {} /* Don't do anything in non-release builds */
-#endif
+
+// TODO: make a macro for checking for invalid arguments
 
 #endif

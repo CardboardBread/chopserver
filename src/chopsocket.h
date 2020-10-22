@@ -30,4 +30,19 @@ int refuse_connection(int listenfd);
  */
 int connect_to_server(struct sockaddr_in *addr, const char *hostname, int port);
 
+/*
+ * Starts a server on the values that are set in its struct
+ */
+int open_server(struct server *target);
+
+/*
+ * Accepts a client into the given struct.
+ */
+int accept_client(struct client *target, int listen_fd);
+
+/*
+ * Connects to a server, placing the results in the given client
+ */
+int client_connect(struct client *target, const char *hostname, int port);
+
 #endif

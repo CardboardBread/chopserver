@@ -10,7 +10,7 @@
  * Structure Management Functions
  */
 
-int init_buffer_struct(struct buffer **target, const int size) {
+int init_buffer(struct buffer **target, size_t size) {
 	// check valid argument
 	if (target == NULL || size < 1) {
 		return -EINVAL;
@@ -24,7 +24,7 @@ int init_buffer_struct(struct buffer **target, const int size) {
 	}
 
 	// allocate buffer memory
-	char *mem = (char *) malloc(sizeof(char) * size);
+	char *mem = (char *) calloc(size, sizeof(char));
 	if (mem == NULL) {
 		DEBUG_PRINT("malloc, memory");
 		free(init);
@@ -42,7 +42,7 @@ int init_buffer_struct(struct buffer **target, const int size) {
 	return 0;
 }
 
-int init_packet_struct(struct packet **target) {
+int init_packet(struct packet **target) {
 	// check valid argument
 	if (target == NULL) {
 		return -EINVAL;
@@ -56,21 +56,21 @@ int init_packet_struct(struct packet **target) {
 	}
 
 	// initialize structure fields
-	init->head = -1;
-	init->status = -1;
-	init->control1 = -1;
-	init->control2 = -1;
+	init->header.head = 0;
+	init->header.status = 0;
+	init->header.control1 = 0;
+	init->header.control2 = 0;
 	init->data = NULL;
-	init->datalen = 0;
+	init->datalen = -1;
 
 	// set given pointer to new struct
 	*target = init;
 	return 0;
 }
 
-int init_server_struct(struct server **target, const int port, const int max_conns, const int queue_len) {
+int init_server(struct server **target, int port, size_t max_conns, size_t queue_len, size_t window) {
 	// check valid argument
-	if (target == NULL || max_conns < 1 || queue_len < 1) {
+	if (target == NULL || max_conns < 1 || queue_len < 1 || window < 1) {
 		return -EINVAL;
 	}
 
@@ -82,7 +82,7 @@ int init_server_struct(struct server **target, const int port, const int max_con
 	}
 
 	// allocate server client array
-	struct client **mem = (struct client **) malloc(sizeof(struct client *) * max_conns);
+	struct client **mem = (struct client **) calloc(max_conns, sizeof(struct client *));
 	if (mem == NULL) {
 		DEBUG_PRINT("malloc, memory");
 		free(init);
@@ -101,15 +101,16 @@ int init_server_struct(struct server **target, const int port, const int max_con
 	init->max_connections = max_conns;
 	init->cur_connections = 0;
 	init->connect_queue = queue_len;
+	init->window = window;
 
 	// set given pointer to new struct
 	*target = init;
 	return 0;
 }
 
-int init_client_struct(struct client **target, const int size) {
+int init_client(struct client **target, size_t window) {
 	// check valid argument
-	if (target == NULL || size < 1) {
+	if (target == NULL || window < 1) {
 		return -EINVAL;
 	}
 
@@ -123,16 +124,16 @@ int init_client_struct(struct client **target, const int size) {
 	// initialize structure fields
 	init->socket_fd = -1;
 	init->server_fd = -1;
-	init->inc_flag = -1;
-	init->out_flag = -1;
-	init->window = size;
+	init->inc_flag = 0;
+	init->out_flag = 0;
+	init->window = window;
 
 	// set given pointer to new struct
 	*target = init;
 	return 0;
 }
 
-int destroy_buffer_struct(struct buffer **target) {
+int destroy_buffer(struct buffer **target) {
 	// check valid argument
 	if (target == NULL) {
 		return -EINVAL;
@@ -157,7 +158,26 @@ int destroy_buffer_struct(struct buffer **target) {
 	return 0;
 }
 
-int destroy_packet_struct(struct packet **target) {
+int empty_packet(struct packet *target) {
+	// check valid argument
+	if (target == NULL) {
+		return -EINVAL;
+	}
+
+	// loop through data segments, dealloc each one
+	struct buffer *cur;
+	struct buffer *next;
+	for (cur = target->data; cur != NULL; cur = next) {
+		next = cur->next;
+		free(cur->buf);
+		free(cur);
+		cur = NULL;
+	}
+
+	return 0;
+}
+
+int destroy_packet(struct packet **target) {
 	// check valid argument
 	if (target == NULL) {
 		return -EINVAL;
@@ -172,14 +192,7 @@ int destroy_packet_struct(struct packet **target) {
 	struct packet *old = *target;
 
 	// deallocate all nodes in data section
-	struct buffer *cur;
-	struct buffer *next;
-	for (cur = old->data; cur != NULL; cur = next) {
-		next = cur->next;
-		free(cur->buf);
-		free(cur);
-		cur = NULL;
-	}
+	empty_packet(old);
 
 	// deallocate structure
 	free(old);
@@ -189,7 +202,7 @@ int destroy_packet_struct(struct packet **target) {
 	return 0;
 }
 
-int destroy_server_struct(struct server **target) {
+int destroy_server(struct server **target) {
 	// check valid argument
 	if (target == NULL) {
 		return -EINVAL;
@@ -205,14 +218,15 @@ int destroy_server_struct(struct server **target) {
 
 	// close open channels
 	if (old->server_fd > MIN_FD) {
-		close(old->server_fd);
+		if (close(old->server_fd) < 0) {
+			DEBUG_PRINT("close");
+			return -errno;
+		}
 	}
 
 	// deallocate remaining clients
-	for (int i = 0; i < old->max_connections; i++) {
-		if (old->clients + i != NULL) destroy_client_struct(old->clients + i);
-		// TODO: make sure the array of client pointers can be iterated along as such
-		//destroy_client_struct(&(old->clients[i])); // alternative option
+	for (size_t i = 0; i < old->max_connections; i++) {
+		if (old->clients + i != NULL) destroy_client(old->clients + i);
 	}
 
 	// deallocate clients section
@@ -226,7 +240,7 @@ int destroy_server_struct(struct server **target) {
 	return 0;
 }
 
-int destroy_client_struct(struct client **target) {
+int destroy_client(struct client **target) {
 	// check valid argument
 	if (target == NULL) {
 		return -EINVAL;
@@ -242,7 +256,10 @@ int destroy_client_struct(struct client **target) {
 
 	// close open channels
 	if (old->socket_fd > MIN_FD) {
-		close(old->socket_fd);
+		if (close(old->socket_fd) < 0) {
+			DEBUG_PRINT("close");
+			return -errno;
+		}
 	}
 
 	// deallocate structure

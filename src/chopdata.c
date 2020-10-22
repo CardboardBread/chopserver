@@ -8,61 +8,60 @@
 #include "chopdebug.h"
 #include "choppacket.h"
 
-int fill_buf(struct buffer *buffer, const int input) {
+int fill_buf(struct buffer *buffer, int input_fd) {
 	// check valid inputs
-	if (buffer == NULL || input < 0) {
+	if (buffer == NULL || input_fd < MIN_FD) {
 		DEBUG_PRINT("invalid arguments");
 		return -EINVAL;
 	}
 
+	// calculate open space
+	char *head = buffer->buf + buffer->inbuf;
+	size_t left = buffer->bufsize - buffer->inbuf;
+
 	// buffer full case
-	if (buffer->inbuf == buffer->bufsize) {
+	if (left == 0) {
 		DEBUG_PRINT("buffer full");
 		return 0;
 	}
 
-	// calculate open space
-	char *head = buffer->buf + buffer->inbuf;
-	int left = buffer->bufsize - buffer->inbuf;
-
 	// read as much as possible
-	int readlen = read(input, head, left);
+	ssize_t bytes_read = read(input_fd, head, left);
 
 	// check for error
-	if (readlen < 0) {
+	if (bytes_read < 0) {
 		DEBUG_PRINT("read fail");
 		return -errno;
+	} else if (bytes_read == 0) {
+		DEBUG_PRINT("input closed");
+		return bytes_read;
 	}
 
 	// increment buffer's written space
-	buffer->inbuf += readlen;
+	buffer->inbuf += bytes_read;
 
-	DEBUG_PRINT("read %d", readlen);
-	return 0;
+	DEBUG_PRINT("read %d", bytes_read);
+	return bytes_read;
 }
 
-int read_data(struct client *cli, struct packet *pack, int remaining) {
+int read_data(struct client *cli, struct packet *pack, size_t remaining) {
 	// check valid inputs
 	if (cli == NULL || pack == NULL || remaining < 0) {
 		DEBUG_PRINT("invalid arguments");
 		return -EINVAL;
 	}
 
-	// zero incoming
-	if (remaining == 0) {
-		return 0;
-	}
-
-	int buffers = remaining / cli->window + (remaining % cli->window != 0);
+	// calculate how many buffers will hold all the incoming data
+	size_t buffers = remaining / cli->window + (remaining % cli->window != 0);
 
 	// loop as many times as new buffers are needed
-	int total = 0;
-	int expected;
-	int bytes_read;
+	size_t total = 0;
+	size_t expected;
+	ssize_t bytes_read;
 	struct buffer *receive;
-	for (int i = 0; i < buffers; i++) {
+	for (size_t i = 0; i < buffers; i++) {
 
-		// allocate more space to hold data
+		// allocate space to hold incoming data
 		if (append_buffer(pack, cli->window, &receive) < 0) {
 			DEBUG_PRINT("fail allocate buffer %d", i);
 			return -ENOMEM;
@@ -70,20 +69,18 @@ int read_data(struct client *cli, struct packet *pack, int remaining) {
 
 		// read expected bytes per data segment
 		expected = (receive->bufsize > remaining) ? remaining : receive->bufsize;
-		bytes_read = read(cli->socket_fd, receive->buf, expected);
+		bytes_read = force_read(cli->socket_fd, receive->buf, expected);
 		if (bytes_read != expected) {
 			// in case read isn't perfect
 			if (bytes_read < 0) {
 				DEBUG_PRINT("failed data read");
 				return -errno;
 			} else if (bytes_read == 0) {
-				DEBUG_PRINT("socket closed");
-                cli->inc_flag = CANCEL;
-                cli->out_flag = CANCEL;
-				return -1;
+				DEBUG_PRINT("failed data read, socket closed");
+				return -1; // TODO: find appropriate error number
 			} else {
 				DEBUG_PRINT("incomplete data read, %d remaining", expected - bytes_read);
-				return -1;
+				return -1; // TODO: find appropriate error number
 			}
 		}
 
@@ -93,7 +90,7 @@ int read_data(struct client *cli, struct packet *pack, int remaining) {
 		receive->inbuf = bytes_read;
 	}
 
-	DEBUG_PRINT("data section length %d, %d segments", total, buffers);
+	DEBUG_PRINT("data section received, length %d, segments %d", total, buffers);
 	return total;
 }
 
@@ -104,36 +101,36 @@ int read_header(struct client *cli, struct packet *pack) {
         return -EINVAL;
     }
 
-    // buffer to receive header
-    char header[HEADER_LEN];
+    // buffer to receive header, and converted pointer
+    struct packet_header header;
+    char *header_ptr = (char *) &header;
 
     // read packet from client
-    int head_read = read(cli->socket_fd, header, HEADER_LEN);
-    if (head_read != HEADER_LEN) {
-
+    size_t expected = sizeof(struct packet_header);
+    ssize_t bytes_read = force_read(cli->socket_fd, header_ptr, expected);
+    if (bytes_read != expected) {
         // in case read isn't perfect
-        if (head_read < 0) {
+        if (bytes_read < 0) {
             DEBUG_PRINT("failed header read");
             return -errno;
-        } else if (head_read == 0) {
-            DEBUG_PRINT("socket closed");
-            cli->inc_flag = CANCEL;
-            cli->out_flag = CANCEL;
-            return -1;
+        } else if (bytes_read == 0) {
+            DEBUG_PRINT("failed header read, socket closed");
+            return -1; // TODO: find appropriate error number
         } else {
-            DEBUG_PRINT("incomplete header read");
-            return -1;
+            DEBUG_PRINT("incomplete header read, %d remaining", expected - bytes_read);
+            return -1; // TODO: find appropriate error number
         }
     }
 
     // move buffer to packet fields
-    memmove(pack, header, HEADER_LEN);
+    pack->header = header;
 
-    // print incoming header
-    DEBUG_PRINT(dbg_pack, pack->head, stat_to_str(pack->status), pack->control1, pack->control2);
+    // print incoming header // TODO: centralize header printing
+    DEBUG_PRINT(dbg_pack, pack->header.head, stat_to_str(pack->header.status),
+								pack->header.control1, pack->header.control2);
 
     // TODO: this is very platform dependent
-    DEBUG_PRINT("read header, style %d, width %d", packet_style(pack), head_read);
+    DEBUG_PRINT("read header, style %d, width %d", packet_style(pack), bytes_read);
     return 0;
 }
 
@@ -144,65 +141,66 @@ int write_packet(struct client *cli, struct packet *pack) {
         return -EINVAL;
     }
 
-    // mark client outgoing flag with status
-    cli->out_flag = pack->status;
+    // assemble writing variables
+    size_t head_expected = sizeof(struct packet_header);
+    const char *header_ptr = (const char *) &(pack->header);
 
     // write header packet to target
-    ssize_t head_written = write(cli->socket_fd, (void *) pack, HEADER_LEN);
-    if (head_written != HEADER_LEN) {
+    ssize_t head_written = force_write(cli->socket_fd, header_ptr, head_expected);
+    if (head_written != head_expected) {
         // in case write was not perfectly successful
         if (head_written < 0) {
             DEBUG_PRINT("failed header write");
             return -errno;
         } else if (head_written == 0) {
-            DEBUG_PRINT("socket closed");
+            DEBUG_PRINT("failed header write, socket closed");
             return -1; // TODO: what to return?
         } else {
-            DEBUG_PRINT("incomplete header write");
+            DEBUG_PRINT("incomplete header write, %d remaining", head_expected - head_written);
             return -1; // TODO: what to return?
         }
     }
 
     // loop through all buffers in packet's data section
-    int total = 0;
-    int tracker = 0;
-    ssize_t bytes_written;
+    size_t total = 0;
+    size_t buffer_index = 0;
+    size_t data_expected;
+    ssize_t data_written;
     struct buffer *segment;
     for (segment = pack->data; segment != NULL; segment = segment->next) {
 
         // write buffer to target (if any)
-        bytes_written = write(cli->socket_fd, segment->buf, segment->inbuf);
-        if (bytes_written != segment->inbuf) {
+		data_expected = segment->inbuf;
+        data_written = force_write(cli->socket_fd, segment->buf, data_expected);
+        if (data_written != data_expected) {
             // in case write was not perfectly successful
-            if (bytes_written < 0) {
-                DEBUG_PRINT("failed data write, segment %d", tracker);
+            if (data_written < 0) {
+                DEBUG_PRINT("failed data write segment %d", buffer_index);
                 return -errno;
-            } else if (bytes_written == 0) {
-                DEBUG_PRINT("socket closed");
+            } else if (data_written == 0) {
+                DEBUG_PRINT("failed data write segment %d, socket closed", buffer_index);
                 return -1; // TODO: what to return?
             } else {
-                DEBUG_PRINT("incomplete data write, segment %d", tracker);
+                DEBUG_PRINT("incomplete data write segment %d, %d remaining", buffer_index, data_expected);
                 return -1; // TODO: what to return?
             }
         }
 
         // track depth into data section, as well as total data length
-        tracker++;
-        total += bytes_written;
+        buffer_index++;
+        total += data_written;
     }
 
-    // demark client outgoing flag
-    cli->out_flag = 0;
-
-    // print outgoing header
-    DEBUG_PRINT(dbg_pack, pack->head, stat_to_str(pack->status), pack->control1, pack->control2);
+    // print outgoing header // TODO: centralize header printing
+	DEBUG_PRINT(dbg_pack, pack->header.head, stat_to_str(pack->header.status),
+				pack->header.control1, pack->header.control2);
 
     // TODO: this is very platform dependent
     DEBUG_PRINT("packet style %d, %d bytes header, %d bytes body", packet_style(pack), head_written, total);
     return total;
 }
 
-int find_newline(const char *buf, const int len) {
+int find_newline(const char *buf, size_t len) {
 	// check valid arguments
 	if (buf == NULL || len < 1) {
 		DEBUG_PRINT("invalid arguments");
@@ -216,7 +214,7 @@ int find_newline(const char *buf, const int len) {
 	}
 
 	// loop through buffer until first newline is found
-	int index;
+	size_t index;
 	for (index = 1; index < len; index++) {
 		// network newline
 		if (buf[index - 1] == '\r' && buf[index] == '\n') {
@@ -232,11 +230,11 @@ int find_newline(const char *buf, const int len) {
 	}
 
 	// nothing found
-	DEBUG_PRINT("none found");
+	DEBUG_PRINT("no newline found");
 	return -ENOENT;
 }
 
-int remove_newline(char *buf, const int len) {
+int remove_newline(char *buf, size_t len) {
 	// check valid arguments
 	if (buf == NULL || len < 1) {
 		DEBUG_PRINT("invalid arguments");
@@ -251,7 +249,7 @@ int remove_newline(char *buf, const int len) {
 	}
 
 	// loop through buffer until first newline is found
-	int index;
+	size_t index;
 	for (index = 1; index < len; index++) {
 		// network newline
 		if (buf[index - 1] == '\r' && buf[index] == '\n') {
@@ -270,11 +268,11 @@ int remove_newline(char *buf, const int len) {
 	}
 
 	// nothing found
-	DEBUG_PRINT("none found");
+	DEBUG_PRINT("no newline found");
 	return -ENOENT;
 }
 
-int buf_contains_symbol(const char *buf, const int len, const char symbol) {
+int buf_contains_symbol(const char *buf, size_t len, char symbol) {
 	// check valid arguments
 	if (buf == NULL || len < 1) {
 		DEBUG_PRINT("invalid arguments");
@@ -282,7 +280,7 @@ int buf_contains_symbol(const char *buf, const int len, const char symbol) {
 	}
 
 	// loop through buffer until first symbol is found
-	int index;
+	size_t index;
 	for (index = 0; index < len; index++) {
 		if (buf[index] == symbol) {
 			DEBUG_PRINT("char %d found at %d", symbol, index);
@@ -291,7 +289,7 @@ int buf_contains_symbol(const char *buf, const int len, const char symbol) {
 	}
 
 	// no symbol found
-	DEBUG_PRINT("none found");
+	DEBUG_PRINT("symbol %d not found", symbol);
 	return -ENOENT;
 }
 
@@ -306,7 +304,47 @@ void char_to_bin(char value, char *ret) {
 	ret[8] = '\0';
 }
 
-int consolidate_packet(struct packet *pack, struct buffer **dest) {
+int assemble_data(struct packet *pack, const char *buf, size_t buf_len, size_t fragment_size) {
+	if (pack == NULL || buf == NULL || buf_len < 0 || fragment_size < 0) {
+		DEBUG_PRINT("invalid arguments");
+		return -EINVAL;
+	}
+
+	// calculate how many buffers will hold all the data
+	size_t buffers = buf_len / fragment_size + (buf_len % fragment_size != 0);
+
+	size_t expected;
+	size_t remaining = buf_len;
+	const char *depth = buf;
+	struct buffer *receive;
+	for (size_t i = 0; i < buffers; i++) {
+
+		// allocate space to hold segment
+		if (append_buffer(pack, fragment_size, &receive) < 0) {
+			DEBUG_PRINT("fail allocate buffer %d", i);
+			return -ENOMEM;
+		}
+
+		// copy expected bytes to buffer
+		expected = (receive->bufsize > remaining) ? remaining : receive->bufsize;
+		memmove(receive->buf, depth, expected);
+
+		// update progress variables
+		remaining -= expected;
+		depth += expected;
+		receive->inbuf = expected;
+	}
+
+	// sanity check, make sure everything is moved
+	if (depth != (buf + buf_len) || remaining != 0) {
+		DEBUG_PRINT("failed to move data, %d leftover, %d bytes behind", buf_len - remaining, buf - depth);
+		return -1; // TODO: find proper errno to return
+	}
+
+	return buffers;
+}
+
+int consolidate_packet(struct packet *pack) {
 	// check valid inputs
 	if (pack == NULL) {
 		DEBUG_PRINT("invalid arguments");
@@ -314,30 +352,149 @@ int consolidate_packet(struct packet *pack, struct buffer **dest) {
 	}
 
 	// loop through the segments for the total amount of data
-	int total = HEADER_LEN;
+	size_t total = sizeof(struct packet_header);
 	struct buffer *cur;
 	for (cur = pack->data; cur != NULL; cur = cur->next) {
 		total += cur->inbuf;
 	}
 
 	// create destination for packet
-	if (init_buffer_struct(dest, total) < 0) {
-		return -ENOMEM;
+	struct buffer *large;
+	int alloc = init_buffer(&large, total);
+	if (alloc < 0) {
+		return alloc;
 	}
-	struct buffer *init = *dest;
 
 	// mark destination elements;
-	init->inbuf = HEADER_LEN + total;
+	large->inbuf = total;
 
-	// copy header elements into beginning
-	memmove(init->buf, pack, HEADER_LEN);
-
-	// copy body into remainder
-	char *depth = init->buf + HEADER_LEN;
+	// copy body segments' data into large buffer in-order
+	char *depth = large->buf;
 	for (cur = pack->data; cur != NULL; cur = cur->next) {
-		memmove(depth, cur->buf, cur->bufsize);
+		memmove(depth, cur->buf, cur->inbuf);
 		depth += cur->inbuf;
 	}
 
+	// replace existing segment chain with large segment
+	empty_packet(pack);
+	pack->data = large;
+
 	return 0;
+}
+
+int append_buffer(struct packet *pack, size_t buffer_len, struct buffer **out) {
+	// check valid argument
+	if (pack == NULL || buffer_len < 0) {
+		DEBUG_PRINT("invalid arguments");
+		return -EINVAL;
+	}
+
+	struct buffer *container;
+	if (init_buffer(&container, buffer_len) < 0) {
+		DEBUG_PRINT("failed buffer init");
+		return -1;
+	}
+
+	// data section is empty
+	if (pack->data == NULL) {
+		// place new segment in data section
+		pack->data = container;
+	} else {
+		// loop to end of data section
+		struct buffer *cur;
+		for (cur = pack->data; cur->next != NULL; cur = cur->next);
+
+		// append new empty data segment
+		cur->next = container;
+	}
+
+	// return reference to new buffer
+	if (out != NULL) {
+		*out = container;
+	}
+
+	pack->datalen++;
+	return 0;
+}
+
+int force_read(int input_fd, char *buffer, size_t incoming) {
+	// check valid inputs
+	if (input_fd < MIN_FD || buffer == NULL || incoming < 0) {
+		DEBUG_PRINT("invalid arguments");
+		return -EINVAL;
+	}
+
+	// keep attempting to read all the data we expect
+	size_t received = 0;
+	ssize_t bytes_read;
+	while (incoming > 0) {
+		bytes_read = read(input_fd, buffer + received, incoming);
+		if (bytes_read < 0) {
+			// error encountered while reading
+			DEBUG_PRINT("failed force %d bytes in", incoming);
+			return -errno;
+		} else if (bytes_read == 0) {
+			// end of file or fd closed
+			DEBUG_PRINT("end reached, %d bytes unforced", incoming);
+			return received;
+		}
+
+		received += bytes_read;
+		incoming -= bytes_read;
+	}
+
+	return received;
+}
+
+int force_write(int output_fd, const char *buffer, size_t outgoing) {
+	// check valid inputs
+	if (output_fd < MIN_FD || buffer == NULL || outgoing < 0) {
+		DEBUG_PRINT("invalid arguments");
+		return -EINVAL;
+	}
+
+	size_t sent = 0;
+	ssize_t bytes_written;
+	while (outgoing > 0) {
+		bytes_written = write(output_fd, buffer + sent, outgoing);
+		if (bytes_written < 0) {
+			// error encountered while writing
+			DEBUG_PRINT("failed force %d bytes out", outgoing);
+			return -errno;
+		} else if (bytes_written == 0) {
+			// fd closed
+			DEBUG_PRINT("output closed, %d bytes unforced", outgoing);
+			return sent;
+		}
+
+		sent += bytes_written;
+		outgoing -= bytes_written;
+	}
+
+	return sent;
+}
+
+int packet_style(struct packet *pack) {
+	// check valid argument
+	if (pack == NULL) {
+		DEBUG_PRINT("invalid arguments");
+		return 0;
+	}
+
+	// declare on-stack container for header
+	int style;
+
+	// create references to each byte of container
+	char *hd = (char *) &style;
+	char *st = hd + 1;
+	char *c1 = st + 1;
+	char *c2 = c1 + 1;
+
+	// copy values from packet header segments
+	*hd = (char) pack->header.head;
+	*st = (char) pack->header.status;
+	*c1 = (char) pack->header.control1;
+	*c2 = (char) pack->header.control2;
+
+	return style;
 }

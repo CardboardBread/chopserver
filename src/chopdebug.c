@@ -120,7 +120,7 @@ void _message_print(int socketfd, const char *format, ...) {
 
 int print_text(struct client *client, struct packet *pack) {
     // check valid arguments
-    if (client == NULL || pack == NULL || pack->status != START_TEXT) {
+    if (client == NULL || pack == NULL || pack->header.status != START_TEXT) {
         DEBUG_PRINT("invalid arguments");
         return -EINVAL;
     }
@@ -143,12 +143,12 @@ int print_text(struct client *client, struct packet *pack) {
 
 int print_enquiry(struct client *client, struct packet *pack) {
     // check valid arguments
-    if (client == NULL || pack == NULL || pack->status != ENQUIRY) {
+    if (client == NULL || pack == NULL || pack->header.status != ENQUIRY) {
         DEBUG_PRINT("invalid arguments");
         return -EINVAL;
     }
 
-    switch (pack->control1) {
+    switch (pack->header.control1) {
         case ENQUIRY_NORMAL:
 			MESSAGE_PRINT(client->socket_fd, recv_ping_norm);
             break;
@@ -180,7 +180,7 @@ int print_time(struct client *client, struct packet *pack) {
     }
 
     // make sure incoming packet is time packet
-    if (pack->status != ENQUIRY || pack->control1 != ENQUIRY_TIME) {
+    if (pack->header.status != ENQUIRY || pack->header.control1 != ENQUIRY_TIME) {
         DEBUG_PRINT("invalid packet type");
         return -1;
     }
@@ -195,20 +195,20 @@ int print_time(struct client *client, struct packet *pack) {
 
 int print_acknowledge(struct client *client, struct packet *pack) {
     // check valid arguments
-    if (client == NULL || pack == NULL) {
+    if (client == NULL || pack == NULL || pack->header.status != ACKNOWLEDGE) {
         DEBUG_PRINT("invalid arguments");
         return -EINVAL;
     }
 
     // print acknowledge contents
-	MESSAGE_PRINT(client->socket_fd, ackn_text, stat_to_str(pack->control1));
+	MESSAGE_PRINT(client->socket_fd, ackn_text, stat_to_str(pack->header.control1));
 
     return 0;
 }
 
 int print_wakeup(struct client *client, struct packet *pack) {
     // check valid arguments
-    if (client == NULL || pack == NULL) {
+    if (client == NULL || pack == NULL || pack->header.status != WAKEUP) {
         DEBUG_PRINT("invalid arguments");
         return -EINVAL;
     }
@@ -221,20 +221,20 @@ int print_wakeup(struct client *client, struct packet *pack) {
 
 int print_neg_acknowledge(struct client *client, struct packet *pack) {
     // check valid arguments
-    if (client == NULL || pack == NULL) {
+    if (client == NULL || pack == NULL || pack->header.status != NEG_ACKNOWLEDGE) {
         DEBUG_PRINT("invalid arguments");
         return -EINVAL;
     }
 
     // print negative acknowledge contents
-    MESSAGE_PRINT(client->socket_fd, neg_ackn_text, stat_to_str(pack->control1));
+    MESSAGE_PRINT(client->socket_fd, neg_ackn_text, stat_to_str(pack->header.control1));
 
     return 0;
 }
 
 int print_idle(struct client *client, struct packet *pack) {
     // check valid arguments
-    if (client == NULL || pack == NULL) {
+    if (client == NULL || pack == NULL || pack->header.status != IDLE) {
         DEBUG_PRINT("invalid arguments");
         return -EINVAL;
     }
@@ -247,20 +247,20 @@ int print_idle(struct client *client, struct packet *pack) {
 
 int print_error(struct client *client, struct packet *pack) {
 	// check valid arguments
-	if (client == NULL || pack == NULL) {
+	if (client == NULL || pack == NULL || pack->header.status != SUBSTITUTE) {
 		DEBUG_PRINT("invalid arguments");
 		return -EINVAL;
 	}
 
 	// print error contents
-	printf(dbg_err, pack->control1, strerror(pack->control1));
+	printf(dbg_err, pack->header.control1, strerror(pack->header.control1));
 
 	return 0;
 }
 
 int print_escape(struct client *client, struct packet *pack) {
     // check valid arguments
-    if (client == NULL || pack == NULL) {
+    if (client == NULL || pack == NULL || pack->header.status != ESCAPE) {
         DEBUG_PRINT("invalid arguments");
         return -EINVAL;
     }

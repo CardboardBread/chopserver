@@ -69,18 +69,22 @@ typedef unsigned char pack_con2;
 
 struct buffer {
 	char *buf;
-	int inbuf;
-	int bufsize;
+	size_t inbuf;
+	size_t bufsize;
 	struct buffer *next;
 };
 
+struct packet_header {
+		pack_head head;
+		pack_stat status;
+		pack_con1 control1;
+		pack_con2 control2;
+};
+
 struct packet {
-	pack_head head;
-	pack_stat status;
-	pack_con1 control1;
-	pack_con2 control2;
+	struct packet_header header;
 	struct buffer *data;
-	int datalen;
+	ssize_t datalen;
 };
 
 struct server {
@@ -88,9 +92,10 @@ struct server {
 	int server_port;
 	struct sockaddr_in address;
 	struct client **clients; // array of client pointers
-	int max_connections;
+	size_t max_connections;
 	int cur_connections;
-	int connect_queue;
+	size_t connect_queue;
+	size_t window;
 };
 
 struct client {
@@ -99,7 +104,7 @@ struct client {
 	int server_fd; // fd of the server this client is attached to, -1 if client
 	pack_stat inc_flag; // what the client is receiving
 	pack_stat out_flag; // what the client is sending
-	int window; // how much data the client can pass at once
+	size_t window; // how much data the client can pass at once
 };
 
 /*
@@ -112,20 +117,22 @@ struct client {
  * Structure Management Functions
  */
 
-int init_buffer_struct(struct buffer **target, int size);
+int init_buffer(struct buffer **target, size_t size);
 
-int init_packet_struct(struct packet **target);
+int init_packet(struct packet **target);
 
-int init_server_struct(struct server **target, int port, int max_conns, int queue_len);
+int init_server(struct server **target, int port, size_t max_conns, size_t queue_len, size_t window);
 
-int init_client_struct(struct client **target, int size);
+int init_client(struct client **target, size_t window);
 
-int destroy_buffer_struct(struct buffer **target);
+int destroy_buffer(struct buffer **target);
 
-int destroy_packet_struct(struct packet **target);
+int empty_packet(struct packet *target);
 
-int destroy_server_struct(struct server **target);
+int destroy_packet(struct packet **target);
 
-int destroy_client_struct(struct client **target);
+int destroy_server(struct server **target);
+
+int destroy_client(struct client **target);
 
 #endif

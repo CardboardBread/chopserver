@@ -67,7 +67,7 @@ int main(void) {
 	}
 	DEBUG_PRINT("sigint_handler attached");
 
-	if (init_server_struct(&host, PORT, MAX_CONNECTIONS, CONNECTION_QUEUE) < 0) {
+	if (init_server(&host, PORT, MAX_CONNECTIONS, CONNECTION_QUEUE, BUFSIZE) < 0) {
 		DEBUG_PRINT("failed server struct init");
 		exit(1);
 	}
@@ -120,7 +120,8 @@ int main(void) {
 			// send time to all clients
 			for (int i = 0; i < host->max_connections; i++) {
 				if (host->clients[i] != NULL) {
-					if (write_wordpack(host->clients[i], 0, ENQUIRY, ENQUIRY_TIME, sizeof(time_t), time(NULL)) < 0) {
+					if (write_wordpack(host->clients[i],
+						(struct packet_header) {0, ENQUIRY, ENQUIRY_TIME, sizeof(time_t)}, time(NULL)) < 0) {
 						DEBUG_PRINT("failed time update to client %d", host->clients[i]->socket_fd);
 					}
 				}
@@ -148,7 +149,7 @@ int main(void) {
 
 		// accept new client
 		if (FD_ISSET(host->server_fd, &listen_fds)) {
-			int client_fd = accept_new_client(host, BUFSIZE);
+			int client_fd = accept_new_client(host);
 			if (client_fd < 0) {
 				DEBUG_PRINT("failed accept");
 				continue;
