@@ -1,7 +1,12 @@
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 3.10)
 project (chopserver)
-set(GCC_COVERAGE_COMPILE_FLAGS "-g -Werror -Wall")
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -DDEBUG")
-set(CMAKE_C_FLAGS_RELEASE  "${CMAKE_C_FLAGS_RELEASE} -DRELEASE")
+
+set(CMAKE_C_COMPILER gcc)
+set(CMAKE_C_STANDARD 99)
+
+add_compile_options(-Werror -Wall)
+
+link_libraries(pthread)
+
 add_executable(chopserver src/chopserver.c src/chopconn.c src/chopconst.c src/chopdata.c src/chopdebug.c src/choppacket.c src/chopsocket.c)
 add_executable(chopclient src/chopclient.c src/chopconn.c src/chopconst.c src/chopdata.c src/chopdebug.c src/choppacket.c src/chopsocket.c)

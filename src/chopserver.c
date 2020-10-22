@@ -67,6 +67,7 @@ int main(void) {
 	}
 	DEBUG_PRINT("sigint_handler attached");
 
+	// initialize server config
 	if (init_server(&host, PORT, MAX_CONNECTIONS, CONNECTION_QUEUE, BUFSIZE) < 0) {
 		DEBUG_PRINT("failed server struct init");
 		exit(1);
@@ -74,10 +75,10 @@ int main(void) {
 	DEBUG_PRINT("server struct on %d slots", MAX_CONNECTIONS);
 
 	// setup server socket
-	host->server_fd = setup_server_socket(&(host->address), host->server_port, host->connect_queue);
-	if (host->server_fd < 0) {
+	int server_start = open_server(host);
+	if (server_start < 0) {
 		DEBUG_PRINT("failed server socket init");
-		exit(host->server_fd);
+		exit(-server_start);
 	}
 	DEBUG_PRINT("server listening on all interfaces");
 

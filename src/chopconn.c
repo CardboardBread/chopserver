@@ -35,6 +35,7 @@ int accept_new_client(struct server *receiver) {
 	int client_fd = accept_client(new_client, receiver->server_fd);
 	if (client_fd < 0) {
 		DEBUG_PRINT("accept fail");
+		destroy_client(&new_client);
 		return client_fd;
 	}
 	DEBUG_PRINT("new client on fd %d", client_fd);

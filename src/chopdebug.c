@@ -3,6 +3,8 @@
 #include <stdarg.h>
 #include <errno.h>
 #include <string.h>
+#include <pthread.h>
+#include <sys/file.h>
 
 #include "chopdebug.h"
 #include "chopconst.h"
@@ -65,7 +67,7 @@ static const char *enquiry_str[] = {
 
 // errno is preserved through this function,
 // it will not change between this function calling and returning.
-void _debug_print(const char *function, const char *format, ...) {
+void debug_print(const char *function, const char *format, ...) {
 	// check valid arguments
 	if (format == NULL) {
 		return;
@@ -74,12 +76,24 @@ void _debug_print(const char *function, const char *format, ...) {
 	// saving errno
 	int errsav = errno;
 
+	// lock access to the debug stream
+	flock(debug_fd, LOCK_EX);
+
 	// capturing variable argument list
 	va_list args;
 	va_start(args, format);
 
+	// check if calling function is main thread
+	short caller = pthread_self();
+	if (caller > 0) {
+		// printing thread-aware suffix
+		dprintf(debug_fd, dbg_fcn_thr_head, caller, function);
+	} else {
+		// printing suffix
+		dprintf(debug_fd, dbg_fcn_head, function);
+	}
+
 	// printing argument
-	dprintf(debug_fd, dbg_fcn_head, function);
 	vdprintf(debug_fd, format, args);
 	dprintf(debug_fd, msg_tail);
 
@@ -88,13 +102,17 @@ void _debug_print(const char *function, const char *format, ...) {
 		dprintf(debug_fd, dbg_err, errsav, strerror(errsav));
 	}
 
+	// unlock access to the debug stream
+	flock(debug_fd, LOCK_UN);
+
 	// cleaning up
 	va_end(args);
 	errno = errsav;
+
 	return;
 }
 
-void _message_print(int socketfd, const char *format, ...) {
+void message_print(int socketfd, const char *format, ...) {
 	// check valid arguments
 	if (format == NULL) {
 		return;
@@ -132,7 +150,7 @@ int print_text(struct client *client, struct packet *pack) {
     // print every buffer out sequentially
     struct buffer *cur;
     for (cur = pack->data; cur != NULL; cur = cur->next) {
-        printf(recv_text_seg, cur->inbuf, cur->buf);
+        printf(recv_text_seg, (int) cur->inbuf, cur->buf);
     }
 
     // print line end for spacing
