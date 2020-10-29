@@ -11,10 +11,7 @@
 
 int init_server_addr(struct sockaddr_in *addr, const int port) {
 	// check valid arguments
-	if (addr == NULL || port < 0) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(addr == NULL || port < 0);
 
 	// initialize struct fields
 	addr->sin_family = PF_INET; // Allow sockets across machines.
@@ -27,10 +24,7 @@ int init_server_addr(struct sockaddr_in *addr, const int port) {
 
 int setup_server_socket(struct sockaddr_in *self, int port, int num_queue) {
 	// check valid arguments
-	if (self == NULL || num_queue < 1 || port < 0) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(self == NULL || num_queue < 1 || port < 0);
 
 	int init_serv = init_server_addr(self, port);
 	if (init_serv < 0) {
@@ -71,10 +65,7 @@ int setup_server_socket(struct sockaddr_in *self, int port, int num_queue) {
 
 int accept_connection(int listenfd, struct sockaddr_in *peer) {
 	// check valid arguments
-	if (listenfd < MIN_FD) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(listenfd < MIN_FD);
 
 	unsigned int peer_len = sizeof(*peer);
 	peer->sin_family = PF_INET;
@@ -89,10 +80,7 @@ int accept_connection(int listenfd, struct sockaddr_in *peer) {
 }
 
 int refuse_connection(int listenfd) {
-	if (listenfd < MIN_FD) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(listenfd < MIN_FD);
 
 	struct sockaddr_in peer;
 	unsigned int peer_len = sizeof(peer);
@@ -105,10 +93,7 @@ int refuse_connection(int listenfd) {
 
 int connect_to_server(struct sockaddr_in *addr, const char *hostname, int port) {
 	// check valid arguments
-	if (addr == NULL || hostname == NULL || port < 0) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(addr == NULL || hostname == NULL || port < 0);
 
 	int soc = socket(PF_INET, SOCK_STREAM, 0);
 	if (soc < 0) {
@@ -140,10 +125,7 @@ int connect_to_server(struct sockaddr_in *addr, const char *hostname, int port) 
 
 int open_server(struct server *target) {
 	// check valid arguments
-	if (target == NULL) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(target == NULL);
 
 	// initialize server address
 	struct sockaddr_in self;
@@ -186,10 +168,7 @@ int open_server(struct server *target) {
 
 int accept_client(struct client *target, int listen_fd) {
 	// check valid arguments
-	if (target == NULL || listen_fd < MIN_FD) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(target == NULL || listen_fd < MIN_FD);
 
 	// initialize client address
 	struct sockaddr_in peer;
@@ -211,10 +190,7 @@ int accept_client(struct client *target, int listen_fd) {
 }
 
 int client_connect(struct client *target, const char *hostname, int port) {
-	if (hostname == NULL || port < 1) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(hostname == NULL || port < 1);
 
 	// assemble client socket for connections between computers
 	int sock = socket(PF_INET, SOCK_STREAM, 0);

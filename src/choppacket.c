@@ -57,10 +57,7 @@ int write_dataless(struct client *cli, struct packet_header header) {
 
 int write_datapack(struct client *cli, struct packet_header header, const char *buf, size_t buf_len) {
 	// check valid arguments
-	if (cli == NULL || buf == NULL || buf_len < 1) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(cli == NULL || buf == NULL || buf_len < 1);
 
 	// initalize packet
 	struct packet *out;
@@ -97,10 +94,7 @@ int write_datapack(struct client *cli, struct packet_header header, const char *
 
 int write_wordpack(struct client *cli, struct packet_header header, unsigned long int value) {
 	// precondition for invalid arguments
-	if (cli == NULL) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(cli == NULL);
 
 	// initalize packet
 	struct packet *out;
@@ -142,10 +136,7 @@ int write_wordpack(struct client *cli, struct packet_header header, unsigned lon
 
 int parse_header(struct client *cli, struct packet *pack) {
 	// precondition for invalid arguments
-	if (cli == NULL || pack == NULL) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(cli == NULL || pack == NULL);
 
 	// parse the status
 	int status = 0;
@@ -258,10 +249,7 @@ int parse_header(struct client *cli, struct packet *pack) {
 
 int parse_long_header(struct client *cli, struct packet *pack) {
 	// precondition for invalid arguments
-	if (cli == NULL || pack == NULL) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(cli == NULL || pack == NULL);
 
 	int packet_count = pack->header.control1;
 	DEBUG_PRINT("long header of %d", packet_count);
@@ -280,10 +268,7 @@ int parse_long_header(struct client *cli, struct packet *pack) {
 
 int parse_text(struct client *cli, struct packet *pack) {
 	// precondition for invalid arguments
-	if (cli == NULL || pack == NULL) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(cli == NULL || pack == NULL);
 
 	// translate names for readability
 	int count = pack->header.control1;
@@ -320,10 +305,7 @@ int parse_text(struct client *cli, struct packet *pack) {
 
 int read_long_text(struct client *cli, struct packet *pack) {
 	// precondition for invalid arguments
-	if (cli == NULL || pack == NULL) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(cli == NULL || pack == NULL);
 
 	int found = 1;
 	int total = 0;
@@ -364,10 +346,7 @@ int read_long_text(struct client *cli, struct packet *pack) {
 
 int parse_enquiry(struct client *cli, struct packet *pack) {
 	// precondition for invalid argments
-	if (cli == NULL || pack == NULL) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(cli == NULL || pack == NULL);
 
 	switch (pack->header.control1) {
 		case ENQUIRY_NORMAL:
@@ -425,10 +404,7 @@ int parse_enquiry(struct client *cli, struct packet *pack) {
 
 int parse_acknowledge(struct client *cli, struct packet *pack) {
 	// precondition for invalid argument
-	if (cli == NULL || pack == NULL) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(cli == NULL || pack == NULL);
 
 	switch (pack->header.control1) {
 		case START_TEXT: // text confirmed
@@ -470,10 +446,7 @@ int parse_acknowledge(struct client *cli, struct packet *pack) {
 
 int parse_wakeup(struct client *cli, struct packet *pack) {
 	// check valid arguments
-	if (cli == NULL || pack == NULL) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(cli == NULL || pack == NULL);
 
 	// setting values of header
 	if (cli->inc_flag == IDLE) {
@@ -502,10 +475,7 @@ int parse_wakeup(struct client *cli, struct packet *pack) {
 
 int parse_neg_acknowledge(struct client *cli, struct packet *pack) {
 	// precondition for invalid argument
-	if (cli == NULL || pack == NULL) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(cli == NULL || pack == NULL);
 
 	switch (pack->header.control1) {
 		case START_TEXT: // text arguments are invalid/message is invalid
@@ -538,10 +508,7 @@ int parse_neg_acknowledge(struct client *cli, struct packet *pack) {
 
 int parse_idle(struct client *cli, struct packet *pack) {
 	// precondition for invalid argument
-	if (cli == NULL || pack == NULL) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(cli == NULL || pack == NULL);
 
 	// setting values of header
 	if (cli->inc_flag == NULL_BYTE) {
@@ -570,10 +537,7 @@ int parse_idle(struct client *cli, struct packet *pack) {
 
 int parse_error(struct client *cli, struct packet *pack) {
 	// precondition for invalid argument
-	if (cli == NULL || pack == NULL) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(cli == NULL || pack == NULL);
 
 	// confirm error
 	if (write_dataless(cli, (struct packet_header) {0, ACKNOWLEDGE, SUBSTITUTE, 0}) < 0) {
@@ -587,10 +551,7 @@ int parse_error(struct client *cli, struct packet *pack) {
 
 int parse_escape(struct client *cli, struct packet *pack) {
 	// precondition for invalid argument
-	if (cli == NULL || pack == NULL) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(cli == NULL || pack == NULL);
 
 	// confirm client escape
 	if (write_dataless(cli, (struct packet_header) {0, ACKNOWLEDGE, ESCAPE, 0}) < 0) {

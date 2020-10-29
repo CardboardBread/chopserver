@@ -15,10 +15,7 @@
 
 int accept_new_client(struct server *receiver) {
 	// precondition for invalid arguments
-	if (receiver == NULL) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(receiver == NULL);
 
 	// init new client
 	struct client *new_client;
@@ -63,10 +60,7 @@ int accept_new_client(struct server *receiver) {
 
 int establish_server_connection(const char *address, int port, struct client **dest, size_t buf_size) {
 	// precondition for invalid arguments
-	if (address == NULL || port < 0 || dest == NULL || buf_size < 1) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(address == NULL || port < 0 || dest == NULL || buf_size < 1);
 
 	// make new client struct
 	if (init_client(dest, buf_size) < 0) {
@@ -92,10 +86,7 @@ int establish_server_connection(const char *address, int port, struct client **d
 
 int remove_client_index(size_t client_index, struct server *host) {
 	// precondition for invalid arguments
-	if (client_index < 0 || host == NULL) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(client_index < 0 || host == NULL);
 
 	// invalid index
 	if (client_index >= host->max_connections) {
@@ -121,10 +112,7 @@ int remove_client_index(size_t client_index, struct server *host) {
 
 int remove_client_address(struct client **target) {
 	// precondition for invalid arguments
-	if (target == NULL) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(target == NULL);
 
 	// no client at pointer
 	if (*target == NULL) {
@@ -144,10 +132,7 @@ int remove_client_address(struct client **target) {
 
 int process_request(struct client *cli) {
 	// precondition for invalid arguments
-	if (cli == NULL) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(cli == NULL);
 
 	// init packet for recieving
 	struct packet *pack;

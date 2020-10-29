@@ -9,10 +9,7 @@
 
 int fill_buf(struct buffer *buffer, int input_fd) {
 	// check valid inputs
-	if (buffer == NULL || input_fd < MIN_FD) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(buffer == NULL || input_fd < MIN_FD);
 
 	// calculate open space
 	char *head = buffer->buf + buffer->inbuf;
@@ -45,10 +42,7 @@ int fill_buf(struct buffer *buffer, int input_fd) {
 
 int read_data(struct client *cli, struct packet *pack, size_t remaining) {
 	// check valid inputs
-	if (cli == NULL || pack == NULL || remaining < 0) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(cli == NULL || pack == NULL || remaining < 0);
 
 	// calculate how many buffers will hold all the incoming data
 	size_t buffers = remaining / cli->window + (remaining % cli->window != 0);
@@ -95,10 +89,7 @@ int read_data(struct client *cli, struct packet *pack, size_t remaining) {
 
 int read_header(struct client *cli, struct packet *pack) {
     // precondition for invalid argument
-    if (cli == NULL || pack == NULL) {
-        DEBUG_PRINT("invalid arguments");
-        return -EINVAL;
-    }
+    INVAL_CHECK(cli == NULL || pack == NULL);
 
     // buffer to receive header, and converted pointer
     struct packet_header header;
@@ -135,10 +126,7 @@ int read_header(struct client *cli, struct packet *pack) {
 
 int write_packet(struct client *cli, struct packet *pack) {
     // precondition for invalid arguments
-    if (cli == NULL || pack == NULL) {
-        DEBUG_PRINT("invalid arguments");
-        return -EINVAL;
-    }
+    INVAL_CHECK(cli == NULL || pack == NULL);
 
     // assemble writing variables
     size_t head_expected = sizeof(struct packet_header);
@@ -195,16 +183,13 @@ int write_packet(struct client *cli, struct packet *pack) {
 				pack->header.control1, pack->header.control2);
 
     // TODO: this is very platform dependent
-    DEBUG_PRINT("packet style %ld, %ld bytes header, %ld bytes body", packet_style(pack), head_written, total);
+    DEBUG_PRINT("packet style %l, %ld bytes header, %ld bytes body", packet_style(pack), head_written, total);
     return total;
 }
 
 int find_newline(const char *buf, size_t len) {
 	// check valid arguments
-	if (buf == NULL || len < 1) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(buf == NULL || len < 1);
 
 	// first element case
 	if (buf[0] == '\n') {
@@ -235,10 +220,7 @@ int find_newline(const char *buf, size_t len) {
 
 int remove_newline(char *buf, size_t len) {
 	// check valid arguments
-	if (buf == NULL || len < 1) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(buf == NULL || len < 1);
 
 	// first element case
 	if (buf[0] == '\n') {
@@ -272,10 +254,7 @@ int remove_newline(char *buf, size_t len) {
 
 int buf_contains_symbol(const char *buf, size_t len, char symbol) {
 	// check valid arguments
-	if (buf == NULL || len < 1) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(buf == NULL || len < 1);
 
 	// loop through buffer until first symbol is found
 	for (size_t index = 0; index < len; index++) {
@@ -302,10 +281,7 @@ void char_to_bin(char value, char *ret) {
 }
 
 int assemble_data(struct packet *pack, const char *buf, size_t buf_len, size_t fragment_size) {
-	if (pack == NULL || buf == NULL || buf_len < 0 || fragment_size < 0) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(pack == NULL || buf == NULL || buf_len < 0 || fragment_size < 0);
 
 	// calculate how many buffers will hold all the data
 	size_t buffers = buf_len / fragment_size + (buf_len % fragment_size != 0);
@@ -344,10 +320,7 @@ int assemble_data(struct packet *pack, const char *buf, size_t buf_len, size_t f
 
 int consolidate_packet(struct packet *pack) {
 	// check valid inputs
-	if (pack == NULL) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(pack == NULL);
 
 	// loop through the segments for the total amount of data
 	size_t total = sizeof(struct packet_header);
@@ -448,10 +421,7 @@ int fragment_packet(struct packet *pack, size_t window) {
 
 int append_buffer(struct packet *pack, size_t buffer_len, struct buffer **out) {
 	// check valid argument
-	if (pack == NULL || buffer_len < 0) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(pack == NULL || buffer_len < 0);
 
 	struct buffer *container;
 	if (init_buffer(&container, buffer_len) < 0) {
@@ -483,10 +453,7 @@ int append_buffer(struct packet *pack, size_t buffer_len, struct buffer **out) {
 
 int force_read(int input_fd, char *buffer, size_t incoming) {
 	// check valid inputs
-	if (input_fd < MIN_FD || buffer == NULL || incoming < 0) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(input_fd < MIN_FD || buffer == NULL || incoming < 0);
 
 	// keep attempting to read all the data we expect
 	size_t received = 0;
@@ -512,10 +479,7 @@ int force_read(int input_fd, char *buffer, size_t incoming) {
 
 int force_write(int output_fd, const char *buffer, size_t outgoing) {
 	// check valid inputs
-	if (output_fd < MIN_FD || buffer == NULL || outgoing < 0) {
-		DEBUG_PRINT("invalid arguments");
-		return -EINVAL;
-	}
+	INVAL_CHECK(output_fd < MIN_FD || buffer == NULL || outgoing < 0);
 
 	size_t sent = 0;
 	ssize_t bytes_written;
@@ -548,17 +512,9 @@ long packet_style(struct packet *pack) {
 	// declare on-stack container for header
 	long style;
 
-	// create references to each byte of container
-	char *hd = (char *) &style;
-	char *st = hd + 1;
-	char *c1 = st + 1;
-	char *c2 = c1 + 1;
-
-	// copy values from packet header segments
-	*hd = (char) pack->header.head;
-	*st = (char) pack->header.status;
-	*c1 = (char) pack->header.control1;
-	*c2 = (char) pack->header.control2;
+	// convert header to long and copy value
+	long *val = (long *) &pack->header;
+	style = *val;
 
 	return style;
 }
