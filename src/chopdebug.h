@@ -14,7 +14,7 @@ static const int msg_fd = STDOUT_FILENO;
 static const char dbg_fcn_head[] = "[DEBUG][%s]: ";
 static const char dbg_fcn_thr_head[] = "[DEBUG][%d][%s]: ";
 static const char dbg_err[] = "[ERRNO %d]: %s\n";
-static const char dbg_pack[] = "PACKET{%d:%s:%d:%d}";
+static const char dbg_pack[] = "PACKET{%d:%d:%d:%d}";
 static const char msg_tail[] = "\n";
 
 extern int header_type;
@@ -66,7 +66,7 @@ int print_error(struct client *client, struct packet *pack);
 
 int print_escape(struct client *client, struct packet *pack);
 
-const char *stat_to_str(char status);
+const char *stat_to_str(pack_stat status);
 
 const char *enq_cont_to_str(char control1);
 
@@ -85,7 +85,7 @@ const char *msg_header();
 #ifndef NDEBUG
 #define INVAL_CHECK(args) if (args) {DEBUG_PRINT("invalid arguments"); return -EINVAL;}
 #else
-#define INVAL_CHECK(args) if (args) {}
+#define INVAL_CHECK(args) if (args) {return -EINVAL;}
 #endif
 
 #endif

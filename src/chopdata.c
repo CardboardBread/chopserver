@@ -191,7 +191,7 @@ int write_packet(struct client *cli, struct packet *pack) {
     }
 
     // print outgoing header // TODO: centralize header printing
-	DEBUG_PRINT(dbg_pack, pack->header.head, stat_to_str(pack->header.status),
+	DEBUG_PRINT(dbg_pack, pack->header.head, pack->header.status,
 				pack->header.control1, pack->header.control2);
 
     // TODO: this is very platform dependent

@@ -282,14 +282,14 @@ int print_escape(struct client *client, struct packet *pack) {
     return 0;
 }
 
-const char *stat_to_str(char status) {
+const char *stat_to_str(pack_stat status) {
 	if (status < 0) {
 		return NULL;
 	}
 
 	int index = (int) status;
 
-	if (index > status_str_len) {
+	if (index < 0 || index >= status_str_len) {
 		return NULL;
 	}
 
