@@ -11,8 +11,6 @@ int write_dataless(struct client *cli, struct packet_header header);
 
 int write_datapack(struct client *cli, struct packet_header header, const char *buf, size_t buf_len);
 
-int write_wordpack(struct client *cli, struct packet_header header, unsigned long int value);
-
 /*
  * Receiving functions
  */

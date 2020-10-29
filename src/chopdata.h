@@ -101,6 +101,6 @@ int force_write(int output_fd, const char *buffer, size_t outgoing);
 /*
  * Converts the header of a given packet to a single number
  */
-long packet_style(struct packet *pack);
+int packet_style(struct packet *pack);
 
 #endif

@@ -55,7 +55,7 @@
 #define MIN_FD 0
 
 /*
- * Type Definitions
+ * Type Definitions // TODO: create shortcut to insert proper specifier for printing
  */
 
 typedef uint8_t pack_head;

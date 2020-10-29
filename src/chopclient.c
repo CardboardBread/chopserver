@@ -89,6 +89,7 @@ int main(void) {
 		}
 
 		// selecting
+		time_t current_time;
 		listen_fds = all_fds;
 		int nready = select(max_fd + 1, &listen_fds, NULL, NULL, &timeout);
 		if (nready < 0) {
@@ -97,8 +98,10 @@ int main(void) {
 		} if (nready == 0) {
 			DEBUG_PRINT("timeout reached, resetting");
 
-			if (write_wordpack(server_connection,
-					  (struct packet_header) {0, ENQUIRY, ENQUIRY_TIME, sizeof(time_t)}, time(NULL)) < 0) {
+			current_time = time(NULL);
+			if (write_datapack(server_connection,
+							   (struct packet_header) {0, ENQUIRY, ENQUIRY_TIME, sizeof(time_t)},
+							   (const char *) &current_time, sizeof(time_t)) < 0) {
 				DEBUG_PRINT("failed time update to server");
 			}
 		}
@@ -156,8 +159,10 @@ int main(void) {
 
 			} else if (strcmp(buffer, "pingtime") == 0) {
 				// sending time ping
-				if (write_wordpack(server_connection,
-					   (struct packet_header){0, ENQUIRY, ENQUIRY_TIME, sizeof(time_t)}, time(NULL)) < 0) {
+				current_time = time(NULL);
+				if (write_datapack(server_connection,
+								   (struct packet_header){0, ENQUIRY, ENQUIRY_TIME, sizeof(time_t)},
+								   (const char *) &current_time, sizeof(time_t)) < 0) {
 					DEBUG_PRINT("failed packet write");
 					exit(1);
 				}

@@ -100,6 +100,7 @@ int main(void) {
 		}
 
 		// selecting
+		time_t current_time;
 		listen_fds = all_fds;
 		int nready = select(max_fd + 1, &listen_fds, NULL, NULL, &timeout);
 		if (nready < 0) {
@@ -113,10 +114,12 @@ int main(void) {
 			DEBUG_PRINT("timeout reached, resetting");
 
 			// send time to all clients
+			current_time = time(NULL);
 			for (int i = 0; i < host->max_connections; i++) {
 				if (host->clients[i] != NULL) {
-					if (write_wordpack(host->clients[i],
-						(struct packet_header) {0, ENQUIRY, ENQUIRY_TIME, sizeof(time_t)}, time(NULL)) < 0) {
+					if (write_datapack(host->clients[i],
+									   (struct packet_header) {0, ENQUIRY, ENQUIRY_TIME, sizeof(time_t)},
+									   (const char *) &current_time, sizeof(time_t)) < 0) {
 						DEBUG_PRINT("failed time update to client %d", host->clients[i]->socket_fd);
 					}
 				}

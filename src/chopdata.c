@@ -36,7 +36,7 @@ int fill_buf(struct buffer *buffer, int input_fd) {
 	// increment buffer's written space
 	buffer->inbuf += bytes_read;
 
-	DEBUG_PRINT("read %d", bytes_read);
+	DEBUG_PRINT("read %zd", bytes_read);
 	return bytes_read;
 }
 
@@ -56,7 +56,7 @@ int read_data(struct client *cli, struct packet *pack, size_t remaining) {
 
 		// allocate space to hold incoming data
 		if (append_buffer(pack, cli->window, &receive) < 0) {
-			DEBUG_PRINT("fail allocate buffer %d", i);
+			DEBUG_PRINT("fail allocate buffer %zu", i);
 			return -ENOMEM;
 		}
 
@@ -72,7 +72,7 @@ int read_data(struct client *cli, struct packet *pack, size_t remaining) {
 				DEBUG_PRINT("failed data read, socket closed");
 				return -1; // TODO: find appropriate error number
 			} else {
-				DEBUG_PRINT("incomplete data read, %d remaining", expected - bytes_read);
+				DEBUG_PRINT("incomplete data read, %zd remaining", expected - bytes_read);
 				return -1; // TODO: find appropriate error number
 			}
 		}
@@ -83,7 +83,7 @@ int read_data(struct client *cli, struct packet *pack, size_t remaining) {
 		receive->inbuf = bytes_read;
 	}
 
-	DEBUG_PRINT("data section received, length %d, segments %d", total, buffers);
+	DEBUG_PRINT("data section received, length %zu, segments %zu", total, buffers);
 	return total;
 }
 
@@ -107,7 +107,7 @@ int read_header(struct client *cli, struct packet *pack) {
             DEBUG_PRINT("failed header read, socket closed");
             return -1; // TODO: find appropriate error number
         } else {
-            DEBUG_PRINT("incomplete header read, %d remaining", expected - bytes_read);
+            DEBUG_PRINT("incomplete header read, %zd remaining", expected - bytes_read);
             return -1; // TODO: find appropriate error number
         }
     }
@@ -120,7 +120,7 @@ int read_header(struct client *cli, struct packet *pack) {
 								pack->header.control1, pack->header.control2);
 
     // TODO: this is very platform dependent
-    DEBUG_PRINT("read header, style %d, width %d", packet_style(pack), bytes_read);
+    DEBUG_PRINT("read header, style %d, width %zd", packet_style(pack), bytes_read);
     return 0;
 }
 
@@ -143,7 +143,7 @@ int write_packet(struct client *cli, struct packet *pack) {
             DEBUG_PRINT("failed header write, socket closed");
             return -1; // TODO: what to return?
         } else {
-            DEBUG_PRINT("incomplete header write, %d remaining", head_expected - head_written);
+            DEBUG_PRINT("incomplete header write, %zd remaining", head_expected - head_written);
             return -1; // TODO: what to return?
         }
     }
@@ -162,13 +162,13 @@ int write_packet(struct client *cli, struct packet *pack) {
         if (data_written != data_expected) {
             // in case write was not perfectly successful
             if (data_written < 0) {
-                DEBUG_PRINT("failed data write segment %d", buffer_index);
+                DEBUG_PRINT("failed data write segment %zu", buffer_index);
                 return -errno;
             } else if (data_written == 0) {
-                DEBUG_PRINT("failed data write segment %d, socket closed", buffer_index);
+                DEBUG_PRINT("failed data write segment %zu, socket closed", buffer_index);
                 return -1; // TODO: what to return?
             } else {
-                DEBUG_PRINT("incomplete data write segment %d, %d remaining", buffer_index, data_expected);
+                DEBUG_PRINT("incomplete data write segment %zu, %zu remaining", buffer_index, data_expected);
                 return -1; // TODO: what to return?
             }
         }
@@ -183,7 +183,7 @@ int write_packet(struct client *cli, struct packet *pack) {
 				pack->header.control1, pack->header.control2);
 
     // TODO: this is very platform dependent
-    DEBUG_PRINT("packet style %l, %ld bytes header, %ld bytes body", packet_style(pack), head_written, total);
+    DEBUG_PRINT("packet style %d, %zd bytes header, %zu bytes body", packet_style(pack), head_written, total);
     return total;
 }
 
@@ -202,13 +202,13 @@ int find_newline(const char *buf, size_t len) {
 	for (index = 1; index < len; index++) {
 		// network newline
 		if (buf[index - 1] == '\r' && buf[index] == '\n') {
-			DEBUG_PRINT("network newline at %d", index);
+			DEBUG_PRINT("network newline at %zu", index);
 			return index;
 		}
 
 		// unix newline
 		if (buf[index - 1] != '\r' && buf[index] == '\n') {
-			DEBUG_PRINT("unix newline at %d", index);
+			DEBUG_PRINT("unix newline at %zu", index);
 			return index;
 		}
 	}
@@ -233,7 +233,7 @@ int remove_newline(char *buf, size_t len) {
 	for (size_t index = 1; index < len; index++) {
 		// network newline
 		if (buf[index - 1] == '\r' && buf[index] == '\n') {
-			DEBUG_PRINT("network newline at %d", index);
+			DEBUG_PRINT("network newline at %zu", index);
 			buf[index - 1] = '\0';
 			buf[index] = '\0';
 			return index;
@@ -241,7 +241,7 @@ int remove_newline(char *buf, size_t len) {
 
 		// unix newline
 		if (buf[index - 1] != '\r' && buf[index] == '\n') {
-			DEBUG_PRINT("unix newline at %d", index);
+			DEBUG_PRINT("unix newline at %zu", index);
 			buf[index] = '\0';
 			return index;
 		}
@@ -259,13 +259,13 @@ int buf_contains_symbol(const char *buf, size_t len, char symbol) {
 	// loop through buffer until first symbol is found
 	for (size_t index = 0; index < len; index++) {
 		if (buf[index] == symbol) {
-			DEBUG_PRINT("char %d found at %d", symbol, index);
+			DEBUG_PRINT("char %hd found at %zu", symbol, index);
 			return index;
 		}
 	}
 
 	// no symbol found
-	DEBUG_PRINT("symbol %d not found", symbol);
+	DEBUG_PRINT("symbol %hd not found", symbol);
 	return -ENOENT;
 }
 
@@ -295,7 +295,7 @@ int assemble_data(struct packet *pack, const char *buf, size_t buf_len, size_t f
 
 		// allocate space to hold segment
 		if (append_buffer(pack, fragment_size, &receive) < 0) {
-			DEBUG_PRINT("fail allocate buffer %d", i);
+			DEBUG_PRINT("fail allocate buffer %zu", i);
 			return -ENOMEM;
 		}
 
@@ -311,7 +311,7 @@ int assemble_data(struct packet *pack, const char *buf, size_t buf_len, size_t f
 
 	// sanity check, make sure everything is moved
 	if (depth != (buf + buf_len) || remaining != 0) {
-		DEBUG_PRINT("failed to move data, %d leftover, %d bytes behind", buf_len - remaining, buf - depth);
+		DEBUG_PRINT("failed to move data, %zu leftover, %tu bytes behind", buf_len - remaining, buf - depth);
 		return -1; // TODO: find proper errno to return
 	}
 
@@ -462,11 +462,11 @@ int force_read(int input_fd, char *buffer, size_t incoming) {
 		bytes_read = read(input_fd, buffer + received, incoming);
 		if (bytes_read < 0) {
 			// error encountered while reading
-			DEBUG_PRINT("failed force %d bytes in", incoming);
+			DEBUG_PRINT("failed force %zu bytes in", incoming);
 			return -errno;
 		} else if (bytes_read == 0) {
 			// end of file or fd closed
-			DEBUG_PRINT("end reached, %d bytes unforced", incoming);
+			DEBUG_PRINT("end reached, %zu bytes unforced", incoming);
 			return received;
 		}
 
@@ -487,11 +487,11 @@ int force_write(int output_fd, const char *buffer, size_t outgoing) {
 		bytes_written = write(output_fd, buffer + sent, outgoing);
 		if (bytes_written < 0) {
 			// error encountered while writing
-			DEBUG_PRINT("failed force %d bytes out", outgoing);
+			DEBUG_PRINT("failed force %zu bytes out", outgoing);
 			return -errno;
 		} else if (bytes_written == 0) {
 			// fd closed
-			DEBUG_PRINT("output closed, %d bytes unforced", outgoing);
+			DEBUG_PRINT("output closed, %zu bytes unforced", outgoing);
 			return sent;
 		}
 
@@ -502,19 +502,21 @@ int force_write(int output_fd, const char *buffer, size_t outgoing) {
 	return sent;
 }
 
-long packet_style(struct packet *pack) {
+int packet_style(struct packet *pack) {
 	// check valid argument
 	if (pack == NULL) {
 		DEBUG_PRINT("invalid arguments");
 		return 0;
 	}
 
-	// declare on-stack container for header
-	long style;
+	// declare on-stack container for header and convert
+	struct packet_header raw;
+	int style;
 
-	// convert header to long and copy value
-	long *val = (long *) &pack->header;
-	style = *val;
+	// copy packet header and convert to value
+	raw = pack->header;
+	int *raw_ptr = (int *) &raw;
+	style = *raw_ptr;
 
 	return style;
 }

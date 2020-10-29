@@ -34,7 +34,7 @@ int accept_new_client(struct server *receiver) {
 	DEBUG_PRINT("new client on fd %d", client_fd);
 
 	// find space to put potential new client in
-	int destination = -1;
+	size_t destination = -1;
 	for (size_t i = 0; i < receiver->max_connections; i++) {
 		if (receiver->clients[i] == NULL) {
 			destination = i;
@@ -54,7 +54,7 @@ int accept_new_client(struct server *receiver) {
 
 	// track new client
 	receiver->cur_connections++;
-	DEBUG_PRINT("new client, index %d", destination);
+	DEBUG_PRINT("new client, index %zu", destination);
 	return client_fd;
 }
 
@@ -96,7 +96,7 @@ int remove_client_index(size_t client_index, struct server *host) {
 
 	// no client at index
 	if (host->clients[client_index] == NULL) {
-		DEBUG_PRINT("target index %d empty", client_index);
+		DEBUG_PRINT("target index %zu empty", client_index);
 		return -ENOENT;
 	}
 
@@ -106,7 +106,7 @@ int remove_client_index(size_t client_index, struct server *host) {
 		return -EINVAL;
 	}
 
-	DEBUG_PRINT("removed client at index %d", client_index);
+	DEBUG_PRINT("removed client at index %zu", client_index);
 	return 0;
 }
 
@@ -149,7 +149,7 @@ int process_request(struct client *cli) {
 			// TODO: flush the fd and close the connection (this shouldn't need to happen)
 			break;
 		default:
-			DEBUG_PRINT("client %d flag", cli->inc_flag);
+			DEBUG_PRINT("client %lu flag", cli->inc_flag);
 			status = read_header(cli, pack);
 			if (status < 0) {
 				cli->inc_flag = CANCEL;

@@ -92,44 +92,6 @@ int write_datapack(struct client *cli, struct packet_header header, const char *
 	return 0;
 }
 
-int write_wordpack(struct client *cli, struct packet_header header, unsigned long int value) {
-	// precondition for invalid arguments
-	INVAL_CHECK(cli == NULL);
-
-	// initalize packet
-	struct packet *out;
-	if (init_packet(&out) < 0) {
-		DEBUG_PRINT("failed init packet");
-		return -1;
-	}
-
-	// setting header value
-	out->header = header;
-
-	// allocate data segment
-	const char *value_ptr = (const char *) &value;
-	if (assemble_data(out, value_ptr, sizeof(value), cli->window) < 0) {
-		DEBUG_PRINT("failed data assembly");
-		return -1;
-	}
-
-	// write to client
-	if (write_packet(cli, out) < 0) {
-		DEBUG_PRINT("failed write");
-		cli->inc_flag = CANCEL;
-		cli->out_flag = CANCEL;
-		return -1;
-	}
-
-	// destroy allocated packet
-	if (destroy_packet(&out) < 0) {
-		DEBUG_PRINT("failed packet destroy");
-		return -1;
-	}
-
-	return 0;
-}
-
 /*
 * Receiving Functions
 */
@@ -282,7 +244,7 @@ int parse_text(struct client *cli, struct packet *pack) {
 			return -1;
 		}
 
-		DEBUG_PRINT("long text section length %d, %d segments", long_len, pack->datalen);
+		DEBUG_PRINT("long text section length %d, %zd segments", long_len, pack->datalen);
 		return 0;
 	} else {
 
@@ -348,6 +310,7 @@ int parse_enquiry(struct client *cli, struct packet *pack) {
 	// precondition for invalid argments
 	INVAL_CHECK(cli == NULL || pack == NULL);
 
+	time_t current_time;
 	switch (pack->header.control1) {
 		case ENQUIRY_NORMAL:
 			DEBUG_PRINT("normal enquiry");
@@ -388,7 +351,9 @@ int parse_enquiry(struct client *cli, struct packet *pack) {
 			DEBUG_PRINT("time request");
 
 			// return time enquiry packet
-			if (write_wordpack(cli, (struct packet_header) {0, ENQUIRY, ENQUIRY_TIME, sizeof(time_t)}, time(NULL)) < 0) {
+			current_time = time(NULL);
+			if (write_datapack(cli, (struct packet_header) {0, ENQUIRY, ENQUIRY_TIME, sizeof(time_t)},
+							   (const char *) &current_time, sizeof(time_t)) < 0) {
 				DEBUG_PRINT("failed time enquiry return");
 				return -1;
 			}
