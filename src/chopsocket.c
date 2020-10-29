@@ -1,12 +1,9 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
-#include <assert.h>
 #include <arpa/inet.h>     /* inet_ntoa */
 #include <netdb.h>         /* gethostname */
-#include <sys/socket.h>
 
 #include "chopconst.h"
 #include "chopdebug.h"

@@ -7,7 +7,6 @@
 #include <sys/file.h>
 
 #include "chopdebug.h"
-#include "chopconst.h"
 
 int header_type = 0;
 static const char *all_headers[] = {"[CLIENT %d]: ", "[SERVER %d]: "};
@@ -83,15 +82,9 @@ void debug_print(const char *function, const char *format, ...) {
 	va_list args;
 	va_start(args, format);
 
-	// check if calling function is main thread
+	// print header with calling thread's shortened id
 	short caller = pthread_self();
-	if (caller > 0) {
-		// printing thread-aware suffix
-		dprintf(debug_fd, dbg_fcn_thr_head, caller, function);
-	} else {
-		// printing suffix
-		dprintf(debug_fd, dbg_fcn_head, function);
-	}
+	dprintf(debug_fd, dbg_fcn_thr_head, caller, function);
 
 	// printing argument
 	vdprintf(debug_fd, format, args);

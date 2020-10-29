@@ -1,13 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <stdarg.h>
 #include <errno.h>
-#include <sys/select.h>
 
 #include "chopconn.h"
-#include "chopconst.h"
 #include "chopdata.h"
 #include "chopdebug.h"
 #include "choppacket.h"

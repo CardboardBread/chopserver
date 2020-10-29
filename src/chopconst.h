@@ -58,10 +58,10 @@
  * Type Definitions
  */
 
-typedef unsigned char pack_head;
-typedef unsigned char pack_stat;
-typedef unsigned char pack_con1;
-typedef unsigned char pack_con2;
+typedef uint8_t pack_head;
+typedef uint8_t pack_stat;
+typedef uint8_t pack_con1;
+typedef uint8_t pack_con2;
 
 /*
  * Structures
@@ -108,12 +108,6 @@ struct client {
 };
 
 /*
- * Structure-Relevant Macros
- */
-
-#define HEADER_LEN sizeof(pack_head) + sizeof(pack_stat) + sizeof(pack_con1) + sizeof(pack_con2)
-
-/*
  * Structure Management Functions
  */
 
@@ -134,5 +128,7 @@ int destroy_packet(struct packet **target);
 int destroy_server(struct server **target);
 
 int destroy_client(struct client **target);
+
+int realloc_buffer(struct buffer *target, size_t size);
 
 #endif

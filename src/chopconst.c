@@ -20,15 +20,15 @@ int init_buffer(struct buffer **target, size_t size) {
 	struct buffer *init = (struct buffer *) malloc(sizeof(struct buffer));
 	if (init == NULL) {
 		DEBUG_PRINT("malloc, structure");
-		return -ENOMEM;
+		return -errno;
 	}
 
 	// allocate buffer memory
 	char *mem = (char *) calloc(size, sizeof(char));
 	if (mem == NULL) {
-		DEBUG_PRINT("malloc, memory");
+		DEBUG_PRINT("calloc, memory");
 		free(init);
-		return -ENOMEM;
+		return -errno;
 	}
 
 	// initialize structure fields
@@ -52,7 +52,7 @@ int init_packet(struct packet **target) {
 	struct packet *init = (struct packet *) malloc(sizeof(struct packet));
 	if (init == NULL) {
 		DEBUG_PRINT("malloc");
-		return -ENOMEM;
+		return -errno;
 	}
 
 	// initialize structure fields
@@ -78,7 +78,7 @@ int init_server(struct server **target, int port, size_t max_conns, size_t queue
 	struct server *init = (struct server *) malloc(sizeof(struct server));
 	if (init == NULL) {
 		DEBUG_PRINT("malloc, structure");
-		return -ENOMEM;
+		return -errno;
 	}
 
 	// allocate server client array
@@ -86,7 +86,7 @@ int init_server(struct server **target, int port, size_t max_conns, size_t queue
 	if (mem == NULL) {
 		DEBUG_PRINT("malloc, memory");
 		free(init);
-		return -ENOMEM;
+		return -errno;
 	}
 
 	// set client array to empty
@@ -118,7 +118,7 @@ int init_client(struct client **target, size_t window) {
 	struct client *init = (struct client *) malloc(sizeof(struct client));
 	if (init == NULL) {
 		DEBUG_PRINT("malloc");
-		return -ENOMEM;
+		return -errno;
 	}
 
 	// initialize structure fields
@@ -267,5 +267,29 @@ int destroy_client(struct client **target) {
 
 	// dereference holder
 	*target = NULL;
+	return 0;
+}
+
+int realloc_buffer(struct buffer *target, size_t size) {
+	INVAL_CHECK(target == NULL || size < 1);
+
+	// TODO: check for reallocation in-place
+
+	// allocate new buffer
+	char *new_mem = (char *) calloc(size, sizeof(char));
+	if (new_mem == NULL) {
+		DEBUG_PRINT("calloc, memory");
+		return -errno;
+	}
+
+	// free old buffer
+	char *old_mem = target->buf;
+	free(old_mem);
+
+	// copy in new buffer
+	target->buf = new_mem;
+	target->bufsize = size;
+	target->inbuf = 0;
+
 	return 0;
 }

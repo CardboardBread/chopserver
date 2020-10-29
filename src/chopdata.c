@@ -6,7 +6,6 @@
 #include "chopconst.h"
 #include "chopdata.h"
 #include "chopdebug.h"
-#include "choppacket.h"
 
 int fill_buf(struct buffer *buffer, int input_fd) {
 	// check valid inputs
@@ -126,7 +125,7 @@ int read_header(struct client *cli, struct packet *pack) {
     pack->header = header;
 
     // print incoming header // TODO: centralize header printing
-    DEBUG_PRINT(dbg_pack, pack->header.head, stat_to_str(pack->header.status),
+    DEBUG_PRINT(dbg_pack, pack->header.head, pack->header.status,
 								pack->header.control1, pack->header.control2);
 
     // TODO: this is very platform dependent
@@ -196,7 +195,7 @@ int write_packet(struct client *cli, struct packet *pack) {
 				pack->header.control1, pack->header.control2);
 
     // TODO: this is very platform dependent
-    DEBUG_PRINT("packet style %d, %d bytes header, %d bytes body", packet_style(pack), head_written, total);
+    DEBUG_PRINT("packet style %ld, %ld bytes header, %ld bytes body", packet_style(pack), head_written, total);
     return total;
 }
 
@@ -249,8 +248,7 @@ int remove_newline(char *buf, size_t len) {
 	}
 
 	// loop through buffer until first newline is found
-	size_t index;
-	for (index = 1; index < len; index++) {
+	for (size_t index = 1; index < len; index++) {
 		// network newline
 		if (buf[index - 1] == '\r' && buf[index] == '\n') {
 			DEBUG_PRINT("network newline at %d", index);
@@ -280,8 +278,7 @@ int buf_contains_symbol(const char *buf, size_t len, char symbol) {
 	}
 
 	// loop through buffer until first symbol is found
-	size_t index;
-	for (index = 0; index < len; index++) {
+	for (size_t index = 0; index < len; index++) {
 		if (buf[index] == symbol) {
 			DEBUG_PRINT("char %d found at %d", symbol, index);
 			return index;
@@ -313,6 +310,7 @@ int assemble_data(struct packet *pack, const char *buf, size_t buf_len, size_t f
 	// calculate how many buffers will hold all the data
 	size_t buffers = buf_len / fragment_size + (buf_len % fragment_size != 0);
 
+	// create and fill the calculated number of buffers
 	size_t expected;
 	size_t remaining = buf_len;
 	const char *depth = buf;
@@ -382,6 +380,72 @@ int consolidate_packet(struct packet *pack) {
 	return 0;
 }
 
+int fragment_packet(struct packet *pack, size_t window) {
+	INVAL_CHECK(pack == NULL || window < 1);
+	INVAL_CHECK(pack->datalen < 1);
+
+	// declare buffer to hold first segment of oversize buffers
+	char working_buf[window];
+
+	size_t total_frag = 0;
+	struct buffer *cur;
+	for (cur = pack->data; cur != NULL; cur = cur->next) {
+		size_t cur_size = cur->bufsize;
+		//size_t cur_fill = cur->inbuf; // TODO: have fragmenting performed for only occupied data
+
+		// check if we need to fragment this segment
+		if (cur_size <= window) {
+			continue;
+		}
+
+		// calculate how many smaller fragments are required
+		size_t whole = cur_size / window;
+		size_t overf = cur_size % window;
+		size_t frag_count = whole + (overf != 0);
+
+		// pretend data segment ends at oversize buffer, append_buffer will add fragments to next
+		struct buffer *save_next = cur->next;
+		cur->next = NULL;
+
+		// pretend first buffer's data is already copied
+		cur_size -= window;
+
+		// insert fragments ahead of oversize buffer, copy oversize data into fragments
+		struct buffer *new_buf;
+		for (size_t i = 1; i < frag_count; i++) {
+			// place head at proper overflow segment
+			char *head = cur->buf + (window * i);
+
+			// append fragment to pretend data section
+			if (append_buffer(pack, window, &new_buf) < 0) {
+				DEBUG_PRINT("failed fragment in-progress");
+				return -errno;
+			}
+
+			// move some overflow data
+			size_t expected = (new_buf->bufsize > cur_size) ? cur_size : new_buf->bufsize;
+			memmove(new_buf->buf, head, expected);
+
+			// update tracker variable
+			cur_size -= window;
+		}
+
+		// resize oversize buffer, copy first segment data
+		memmove(working_buf, cur->buf, window);
+		realloc_buffer(cur, window);
+		memmove(cur->buf, working_buf, window);
+
+		// skip to the end of the new fragments, attach the rest of the data segment (stop pretending)
+		cur = new_buf;
+		cur->next = save_next;
+
+		// update tracker values
+		total_frag += frag_count;
+	}
+
+	return 0;
+}
+
 int append_buffer(struct packet *pack, size_t buffer_len, struct buffer **out) {
 	// check valid argument
 	if (pack == NULL || buffer_len < 0) {
@@ -392,7 +456,7 @@ int append_buffer(struct packet *pack, size_t buffer_len, struct buffer **out) {
 	struct buffer *container;
 	if (init_buffer(&container, buffer_len) < 0) {
 		DEBUG_PRINT("failed buffer init");
-		return -1;
+		return -ENOMEM;
 	}
 
 	// data section is empty
@@ -474,7 +538,7 @@ int force_write(int output_fd, const char *buffer, size_t outgoing) {
 	return sent;
 }
 
-int packet_style(struct packet *pack) {
+long packet_style(struct packet *pack) {
 	// check valid argument
 	if (pack == NULL) {
 		DEBUG_PRINT("invalid arguments");
@@ -482,7 +546,7 @@ int packet_style(struct packet *pack) {
 	}
 
 	// declare on-stack container for header
-	int style;
+	long style;
 
 	// create references to each byte of container
 	char *hd = (char *) &style;

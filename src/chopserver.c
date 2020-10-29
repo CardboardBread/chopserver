@@ -1,15 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
 #include <signal.h>
-#include <stdarg.h>
 #include <errno.h>
 #include <time.h>
 
 #include "chopconn.h"
-#include "chopconst.h"
-#include "chopdata.h"
 #include "chopdebug.h"
 #include "choppacket.h"
 #include "chopsocket.h"
@@ -21,14 +17,6 @@
 #define BUFSIZE 255
 #define CONNECTION_QUEUE 5
 #define MAX_CONNECTIONS 20
-
-const char server_header[] = "[SERVER] %s\n";
-const char client_header[] = "[CLIENT %d] %s\n";
-
-const char server_shutdown[] = "[SERVER] Shutting down.\n";
-
-const char client_closed[] = "[CLIENT %d] Connection closed.\n";
-const char connection_accept[] = "[CLIENT %d] Connected.\n";
 
 int sigint_received;
 
@@ -57,11 +45,16 @@ int main(void) {
 	header_type = 0;
 
 	// setup SIGINT handler
-	struct sigaction act1;
-	act1.sa_handler = sigint_handler;
-	sigemptyset(&act1.sa_mask);
-	act1.sa_flags = SA_RESTART; // ensures interrupted calls dont error out
-	if (sigaction(SIGINT, &act1, NULL) < 0) {
+	struct sigaction int_action;
+	int_action.sa_handler = sigint_handler;
+	sigemptyset(&int_action.sa_mask);
+	int_action.sa_flags = SA_RESTART; // ensures interrupted calls dont error out
+
+	// store old SIGINT behaviour
+	struct sigaction int_action_old;
+
+	// replace existing SIGINT handler with custom function
+	if (sigaction(SIGINT, &int_action, &int_action_old) < 0) {
 		DEBUG_PRINT("sigaction: error");
 		exit(1);
 	}
@@ -102,7 +95,8 @@ int main(void) {
 		// closing connections and freeing memory before the process ends
 		if (sigint_received) {
 			DEBUG_PRINT("caught SIGINT, exiting");
-			exit(1);
+			destroy_server(&host);
+			exit(SIGINT);
 		}
 
 		// selecting
@@ -133,16 +127,17 @@ int main(void) {
 		for (int index = 0; index < host->max_connections; index++) {
 			struct client *client = host->clients[index];
 
-			// relies on short circuting
+			// relies on short circuiting
 			if (client != NULL && FD_ISSET(client->socket_fd, &listen_fds)) {
 				if (process_request(client) < 0) {
+					DEBUG_PRINT("request error");
 					//exit(1); // TODO: remove once failing a packet isn't really bad
 				}
 
 				// if a client requested a cancel
 				if (is_client_status(client, CANCEL)) {
 					FD_CLR(client->socket_fd, &all_fds);
-					printf(client_closed, client->socket_fd);
+					MESSAGE_PRINT(client->socket_fd, esc_confirm);
 					remove_client_index(index, host);
 				}
 			}
@@ -158,7 +153,7 @@ int main(void) {
 
 			if (client_fd > max_fd) max_fd = client_fd;
 			FD_SET(client_fd, &all_fds);
-			printf(connection_accept, client_fd);
+			MESSAGE_PRINT(client_fd, acpt_text);
 		}
 	}
 

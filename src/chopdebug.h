@@ -2,6 +2,7 @@
 #define __CHOPDEBUG_H__
 
 #include <unistd.h>
+
 #include "chopconst.h"
 
 /*
@@ -22,21 +23,23 @@ static const char recv_text_start[] = "\"";
 static const char recv_text_seg[] = "%.*s";
 static const char recv_text_end[] = "\"\n";
 
-static const char recv_ping_norm[] = "ENQUIRY\n";
-static const char recv_ping_send[] = "ENQURIY Requested\n";
-static const char recv_ping_time[] = "Time ENQUIRY: \"%ld\"\n";
-static const char recv_ping_time_send[] = "Time ENQUIRY Requested\n";
+static const char acpt_text[] = "Connected";
 
-static const char ackn_text[] = "%s Confirmed\n";
+static const char recv_ping_norm[] = "ENQUIRY";
+static const char recv_ping_send[] = "ENQURIY Requested";
+static const char recv_ping_time[] = "Time ENQUIRY \"%ld\"";
+static const char recv_ping_time_send[] = "Time ENQUIRY Requested";
 
-static const char wakeup_text[] = "Requesting Wakeup\n";
+static const char ackn_text[] = "%s Confirmed";
 
-static const char neg_ackn_text[] = "%s Refused\n";
+static const char wakeup_text[] = "Requesting Wakeup";
 
-static const char idle_text[] = "Requesting Idle\n";
+static const char neg_ackn_text[] = "%s Refused";
 
-static const char esc_text[] = "Requesting Disconnect\n";
-static const char esc_confirm[] = "Connection closed.\n";
+static const char idle_text[] = "Requesting Idle";
+
+static const char esc_text[] = "Requesting Disconnect";
+static const char esc_confirm[] = "Connection closed";
 
 /*
  * Prints requested format string into stderr, prefixing properly
@@ -79,6 +82,10 @@ const char *msg_header();
 
 #define MESSAGE_PRINT(fd, fmt, args...) message_print(fd, fmt, ## args)
 
-// TODO: make a macro for checking for invalid arguments
+#ifndef NDEBUG
+#define INVAL_CHECK(args) if (args) {DEBUG_PRINT("invalid arguments"); return -EINVAL;}
+#else
+#define INVAL_CHECK(args) if (args) {}
+#endif
 
 #endif

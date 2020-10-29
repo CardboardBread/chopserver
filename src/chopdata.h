@@ -73,7 +73,14 @@ int assemble_data(struct packet *pack, const char *buf, size_t buf_len, size_t f
  */
 int consolidate_packet(struct packet *pack);
 
-int fragment_packet(struct packet *pack);
+/*
+ * Scans through a given packet and resizes all data segments such that they
+ * are within the provided limits on buffer size. Attempts to divide oversized
+ * buffers in-place in segment linked list by reallocating the original
+ * oversized buffers and inserting new buffers ahead of the oversize to contain
+ * the overflow.
+ */
+int fragment_packet(struct packet *pack, size_t window);
 
 /*
  * Allocates a new buffer of given size at the end of a given packet. If out is
@@ -94,6 +101,6 @@ int force_write(int output_fd, const char *buffer, size_t outgoing);
 /*
  * Converts the header of a given packet to a single number
  */
-int packet_style(struct packet *pack);
+long packet_style(struct packet *pack);
 
 #endif

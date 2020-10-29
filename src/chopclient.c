@@ -6,12 +6,11 @@
 #include <time.h>
 
 #include "chopconn.h"
-#include "chopconst.h"
 #include "chopdata.h"
 #include "chopdebug.h"
 #include "choppacket.h"
 
-#define BUFSIZE 255
+#define BUF_SIZE 255
 
 #ifndef PORT
 #define PORT 50001
@@ -59,7 +58,7 @@ int main(void) {
 	DEBUG_PRINT("sigint_handler attached");
 
 	// connect to locally hosted server
-	if (establish_server_connection(ADDRESS, PORT, &server_connection, BUFSIZE) < 0) {
+	if (establish_server_connection(ADDRESS, PORT, &server_connection, BUF_SIZE) < 0) {
 		DEBUG_PRINT("failed connection");
 		exit(1);
 	}
