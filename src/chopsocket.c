@@ -148,7 +148,7 @@ int open_server(struct server *target) {
 		return -errno;
 	}
 
-	// associate the process with the address and a port
+	// associate the socket with the address and a port
 	if (bind(sock, (struct sockaddr *) &self, sizeof(self)) < 0) {
 		DEBUG_PRINT("bind");
 		return -errno;

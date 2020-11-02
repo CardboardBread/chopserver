@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stddef.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
@@ -70,10 +71,10 @@ int read_data(struct client *cli, struct packet *pack, size_t remaining) {
 				return -errno;
 			} else if (bytes_read == 0) {
 				DEBUG_PRINT("failed data read, socket closed");
-				return -1; // TODO: find appropriate error number
+				return -ENETDOWN;
 			} else {
 				DEBUG_PRINT("incomplete data read, %zd remaining", expected - bytes_read);
-				return -1; // TODO: find appropriate error number
+				return -EINTR;
 			}
 		}
 
@@ -105,10 +106,10 @@ int read_header(struct client *cli, struct packet *pack) {
             return -errno;
         } else if (bytes_read == 0) {
             DEBUG_PRINT("failed header read, socket closed");
-            return -1; // TODO: find appropriate error number
+            return -ENETDOWN;
         } else {
             DEBUG_PRINT("incomplete header read, %zd remaining", expected - bytes_read);
-            return -1; // TODO: find appropriate error number
+            return -EINTR;
         }
     }
 
@@ -141,10 +142,10 @@ int write_packet(struct client *cli, struct packet *pack) {
             return -errno;
         } else if (head_written == 0) {
             DEBUG_PRINT("failed header write, socket closed");
-            return -1; // TODO: what to return?
+            return -ENETDOWN;
         } else {
             DEBUG_PRINT("incomplete header write, %zd remaining", head_expected - head_written);
-            return -1; // TODO: what to return?
+            return -EINTR;
         }
     }
 
@@ -166,10 +167,10 @@ int write_packet(struct client *cli, struct packet *pack) {
                 return -errno;
             } else if (data_written == 0) {
                 DEBUG_PRINT("failed data write segment %zu, socket closed", buffer_index);
-                return -1; // TODO: what to return?
+                return -ENETDOWN;
             } else {
                 DEBUG_PRINT("incomplete data write segment %zu, %zu remaining", buffer_index, data_expected);
-                return -1; // TODO: what to return?
+                return -EINTR;
             }
         }
 
@@ -311,7 +312,9 @@ int assemble_data(struct packet *pack, const char *buf, size_t buf_len, size_t f
 
 	// sanity check, make sure everything is moved
 	if (depth != (buf + buf_len) || remaining != 0) {
-		DEBUG_PRINT("failed to move data, %zu leftover, %tu bytes behind", buf_len - remaining, buf - depth);
+		ssize_t leftover = buf_len - remaining;
+		ptrdiff_t ptrdiff = buf - depth;
+		DEBUG_PRINT("failed to move data, %zd leftover, %td bytes behind", leftover, ptrdiff);
 		return -1; // TODO: find proper errno to return
 	}
 
@@ -366,15 +369,21 @@ int fragment_packet(struct packet *pack, size_t window) {
 		size_t cur_size = cur->bufsize;
 		//size_t cur_fill = cur->inbuf; // TODO: have fragmenting performed for only occupied data
 
-		// check if we need to fragment this segment
-		if (cur_size <= window) {
-			continue;
-		}
-
 		// calculate how many smaller fragments are required
 		size_t whole = cur_size / window;
 		size_t overf = cur_size % window;
 		size_t frag_count = whole + (overf != 0);
+
+		// check for valid math (catches malformed segments)
+		if (frag_count < 1) {
+			DEBUG_PRINT("fragment calculation failed, buffer %zd is %zu bytes long", pack->datalen, cur_size);
+			continue;
+		}
+
+		// check if we need to fragment this segment
+		if (frag_count < 2) {
+			continue;
+		}
 
 		// pretend data segment ends at oversize buffer, append_buffer will add fragments to next
 		struct buffer *save_next = cur->next;
@@ -384,6 +393,7 @@ int fragment_packet(struct packet *pack, size_t window) {
 		cur_size -= window;
 
 		// insert fragments ahead of oversize buffer, copy oversize data into fragments
+		size_t new_segments = 0;
 		struct buffer *new_buf;
 		for (size_t i = 1; i < frag_count; i++) {
 			// place head at proper overflow segment
@@ -401,6 +411,7 @@ int fragment_packet(struct packet *pack, size_t window) {
 
 			// update tracker variable
 			cur_size -= window;
+			new_segments++;
 		}
 
 		// resize oversize buffer, copy first segment data

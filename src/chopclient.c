@@ -44,7 +44,7 @@ int main(void) {
 	sigint_received = 0;
 
 	// mark debug statements as clientside
-	header_type = 1;
+	INIT_CLIENT_PRINT;
 
 	// setup SIGINT handler
 	struct sigaction act1;

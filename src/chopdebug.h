@@ -2,6 +2,7 @@
 #define __CHOPDEBUG_H__
 
 #include <unistd.h>
+#include <pthread.h>
 
 #include "chopconst.h"
 
@@ -12,12 +13,10 @@
 static const int debug_fd = STDERR_FILENO;
 static const int msg_fd = STDOUT_FILENO;
 static const char dbg_fcn_head[] = "[DEBUG][%s]: ";
-static const char dbg_fcn_thr_head[] = "[DEBUG][%d][%s]: ";
+static const char dbg_fcn_thr_head[] = "[DEBUG][%lu][%s]: ";
 static const char dbg_err[] = "[ERRNO %d]: %s\n";
 static const char dbg_pack[] = "PACKET{%d:%d:%d:%d}";
 static const char msg_tail[] = "\n";
-
-extern int header_type;
 
 static const char recv_text_start[] = "\"";
 static const char recv_text_seg[] = "%.*s";
@@ -38,15 +37,35 @@ static const char neg_ackn_text[] = "%s Refused";
 
 static const char idle_text[] = "Requesting Idle";
 
-static const char esc_text[] = "Requesting Disconnect";
+static const char err_text[] = "ERROR %d\"%s\"";
+
+static const char esc_text[] = "Requesting disconnect";
 static const char esc_confirm[] = "Connection closed";
+
+/*
+ * Printing Control Variable
+ */
+
+extern int header_type;
+pthread_mutex_t print_lock;
+
+#define INIT_SERVER_PRINT {header_type = 0; pthread_mutex_init(&print_lock, NULL);}
+#define INIT_CLIENT_PRINT {header_type = 1; pthread_mutex_init(&print_lock, NULL);}
+
+/*
+ * Printing Functions
+ */
+
+void no_operation();
 
 /*
  * Prints requested format string into stderr, prefixing properly
  */
-void debug_print(const char *format, const char *function, ...);
+void debug_print(const char *function, const char *format, ...);
 
 void message_print(int socketfd, const char *format, ...);
+
+int print_packet(struct client *client, struct packet *pack);
 
 int print_text(struct client *client, struct packet *pack);
 
@@ -66,22 +85,30 @@ int print_error(struct client *client, struct packet *pack);
 
 int print_escape(struct client *client, struct packet *pack);
 
+/*
+ * Printing Utilities
+ */
+
 const char *stat_to_str(pack_stat status);
 
-const char *enq_cont_to_str(char control1);
-
-const char *pack_id_to_str(int id);
+const char *enq_cont_to_str(pack_con1 control1);
 
 const char *msg_header();
 
+/*
+ * Printing Macros
+ */
+
+// Don't do anything in non-debug builds
 #ifndef NDEBUG
 #define DEBUG_PRINT(fmt, args...) debug_print(__FUNCTION__, fmt, ## args)
 #else
-#define DEBUG_PRINT(fmt, args...) {} /* Don't do anything in non-debug builds */
+#define DEBUG_PRINT(fmt, args...) no_operation(fmt, ## args)
 #endif
 
 #define MESSAGE_PRINT(fd, fmt, args...) message_print(fd, fmt, ## args)
 
+// Don't print in non-debug builds
 #ifndef NDEBUG
 #define INVAL_CHECK(args) if (args) {DEBUG_PRINT("invalid arguments"); return -EINVAL;}
 #else

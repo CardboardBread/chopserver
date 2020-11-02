@@ -7,6 +7,52 @@
 #include "chopdebug.h"
 
 /*
+ * Variables
+ */
+
+const struct status status_str_arr[MAX_STATUS] = {
+		{NULL_BYTE, "NULL_BYTE"},
+		{START_HEADER, "START_HEADER"},
+		{START_TEXT, "START_TEXT"},
+		{END_TEXT, "END_TEXT"},
+		{END_TRANSMISSION, "END_TRANSMISSION"},
+		{ENQUIRY, "ENQUIRY"},
+		{ACKNOWLEDGE, "ACKNOWLEDGE"},
+		{WAKEUP, "WAKEUP"},
+		{8, "8"},
+		{9, "9"},
+		{10, "10"},
+		{11, "11"},
+		{12, "12"},
+		{13, "13"},
+		{SHIFT_OUT, "SHIFT_OUT"},
+		{SHIFT_IN, "SHIFT_IN"},
+		{START_DATA, "START_DATA"},
+		{CONTROL_ONE, "CONTROL_ONE"},
+		{CONTROL_TWO, "CONTROL_TWO"},
+		{CONTROL_THREE, "CONTROL_THREE"},
+		{CONTROL_FOUR, "CONTROL_FOUR"},
+		{NEG_ACKNOWLEDGE, "NEG_ACKNOWLEDGE"},
+		{IDLE, "IDLE"},
+		{END_TRANSMISSION_BLOCK, "END_TRANSMISSION_BLOCK"},
+		{CANCEL, "CANCEL"},
+		{END_OF_MEDIUM, "END_OF_MEDIUM"},
+		{SUBSTITUTE, "SUBSTITUTE"},
+		{ESCAPE, "ESCAPE"},
+		{FILE_SEPARATOR, "FILE_SEPARATOR"},
+		{GROUP_SEPARATOR, "GROUP_SEPARATOR"},
+		{RECORD_SEPARATOR, "RECORD_SEPARATOR"},
+		{UNIT_SEPARATOR, "UNIT_SEPARATOR"}
+};
+
+const struct status enquiry_str_arr[MAX_ENQUIRY] = {
+		{ENQUIRY_NORMAL, "ENQUIRY_NORMAL"},
+		{ENQUIRY_RETURN, "ENQUIRY_RETURN"},
+		{ENQUIRY_TIME, "ENQUIRY_TIME"},
+		{ENQUIRY_RTIME, "ENQUIRY_RTIME"}
+};
+
+/*
  * Structure Management Functions
  */
 
@@ -61,7 +107,7 @@ int init_packet(struct packet **target) {
 	init->header.control1 = 0;
 	init->header.control2 = 0;
 	init->data = NULL;
-	init->datalen = -1;
+	init->datalen = 0;
 
 	// set given pointer to new struct
 	*target = init;
@@ -169,9 +215,7 @@ int empty_packet(struct packet *target) {
 	struct buffer *next;
 	for (cur = target->data; cur != NULL; cur = next) {
 		next = cur->next;
-		free(cur->buf);
-		free(cur);
-		cur = NULL;
+		destroy_buffer(&cur);
 	}
 
 	return 0;
@@ -274,6 +318,7 @@ int realloc_buffer(struct buffer *target, size_t size) {
 	INVAL_CHECK(target == NULL || size < 1);
 
 	// TODO: check for reallocation in-place
+	// TODO: check for same size reallocation
 
 	// allocate new buffer
 	char *new_mem = (char *) calloc(size, sizeof(char));

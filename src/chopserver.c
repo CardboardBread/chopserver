@@ -42,7 +42,7 @@ int main(void) {
 	sigint_received = 0;
 
 	// mark debug statements as serverside
-	header_type = 0;
+	INIT_SERVER_PRINT;
 
 	// setup SIGINT handler
 	struct sigaction int_action;

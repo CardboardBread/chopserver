@@ -8,67 +8,56 @@
 
 #include "chopdebug.h"
 
-int header_type = 0;
+/*
+ * Client/Server Print Headers
+ */
+int header_type = 2;
 static const char *all_headers[] = {
 		"[CLIENT %d]: ",
 		"[SERVER %d]: "
 };
 
 /*
- * Header-to-String Section
+ * Printing Function Array
  */
-
-static const int packet_id_len = 4;
-static const char *packet_id[] = {
-		"PACKET_HEAD",
-		"PACKET_STATUS",
-		"PACKET_CONTROL1",
-		"PACKET_CONTROL2"
+status_function printers[MAX_STATUS] = {
+		NULL,					// 0
+		NULL,					// 1
+		print_text,				// 2
+		NULL,					// 3
+		NULL,					// 4
+		print_enquiry,			// 5
+		print_acknowledge,		// 6
+		print_wakeup,			// 7
+		NULL,					// 8
+		NULL,					// 9
+		NULL,					// 10
+		NULL,					// 11
+		NULL,					// 12
+		NULL,					// 13
+		NULL,					// 14
+		NULL,					// 15
+		NULL,					// 16
+		NULL,					// 17
+		NULL,					// 18
+		NULL,					// 19
+		NULL,					// 20
+		print_neg_acknowledge,	// 21
+		print_idle,				// 22
+		NULL,					// 23
+		NULL,					// 24
+		NULL,					// 25
+		print_error,			// 26
+		print_escape,			// 27
+		NULL,					// 28
+		NULL,					// 29
+		NULL,					// 30
+		NULL					// 31
 };
 
-static const int status_str_len = 32;
-static const char *status_str[] = {
-		"NULL_BYTE",
-		"START_HEADER",
-		"START_TEXT",
-		"END_TEXT",
-		"END_TRANSMISSION",
-		"ENQURIY",
-		"ACKNOWLEDGE",
-		"WAKEUP",
-		"8",
-		"9",
-		"10",
-		"11",
-		"12",
-		"13",
-		"SHIFT_OUT",
-		"SHIFT_IN",
-		"START_DATA",
-		"CONTROL_ONE",
-		"CONTROL_TWO",
-		"CONTROL_THREE",
-		"CONTROL_FOUR",
-		"NEG_ACKNOWLEDGE",
-		"IDLE",
-		"END_TRANSMISSION_BLOCK",
-		"CANCEL",
-		"END_OF_MEDIUM",
-		"SUBSTITUTE",
-		"ESCAPE",
-		"FILE_SEPARATOR",
-		"GROUP_SEPARATOR",
-		"RECORD_SEPARATOR",
-		"UNIT_SEPARATOR"
-};
+void no_operation() {
 
-static const int enquiry_str_len = 4;
-static const char *enquiry_str[] = {
-		"ENQUIRY_NORMAL",
-		"ENQUIRY_RETURN",
-		"ENQUIRY_TIME",
-		"ENQUIRY_RTIME"
-};
+}
 
 // errno is preserved through this function,
 // it will not change between this function calling and returning.
@@ -81,15 +70,15 @@ void debug_print(const char *function, const char *format, ...) {
 	// saving errno
 	int errsav = errno;
 
-	// lock access to the debug stream
-	flock(debug_fd, LOCK_EX);
-
 	// capturing variable argument list
 	va_list args;
 	va_start(args, format);
 
+	// lock access to the print stream
+	pthread_mutex_lock(&print_lock);
+
 	// print header with calling thread's shortened id
-	short caller = pthread_self();
+	unsigned long caller = pthread_self();
 	dprintf(debug_fd, dbg_fcn_thr_head, caller, function);
 
 	// printing argument
@@ -102,7 +91,7 @@ void debug_print(const char *function, const char *format, ...) {
 	}
 
 	// unlock access to the debug stream
-	flock(debug_fd, LOCK_UN);
+	pthread_mutex_unlock(&print_lock);
 
 	// cleaning up
 	va_end(args);
@@ -124,10 +113,16 @@ void message_print(int socketfd, const char *format, ...) {
 	va_list args;
 	va_start(args, format);
 
+	// lock access to the print stream
+	pthread_mutex_lock(&print_lock);
+
 	// printing argument
 	dprintf(msg_fd, msg_header(), socketfd);
 	vdprintf(msg_fd, format, args);
 	dprintf(msg_fd, msg_tail);
+
+	// unlock access to the debug stream
+	pthread_mutex_unlock(&print_lock);
 
 	// cleaning up
 	va_end(args);
@@ -135,9 +130,23 @@ void message_print(int socketfd, const char *format, ...) {
 	return;
 }
 
+int print_packet(struct client *client, struct packet *pack) {
+	INVAL_CHECK(client == NULL || pack == NULL);
+
+	// call function responsible for printing packet
+	int subcall = 0;
+	int sub_index = pack->header.status;
+	subcall = printers[sub_index](client, pack);
+
+	return subcall;
+}
+
 int print_text(struct client *client, struct packet *pack) {
     // check valid arguments
     INVAL_CHECK(client == NULL || pack == NULL || pack->header.status != START_TEXT);
+
+	// lock access to the print stream
+	pthread_mutex_lock(&print_lock);
 
     // print prefix for message
     printf(msg_header(), client->socket_fd);
@@ -151,6 +160,9 @@ int print_text(struct client *client, struct packet *pack) {
 
     // print line end for spacing
     printf(recv_text_end);
+
+	// unlock access to the debug stream
+	pthread_mutex_unlock(&print_lock);
 
     return 0;
 }
@@ -246,7 +258,9 @@ int print_error(struct client *client, struct packet *pack) {
 	INVAL_CHECK(client == NULL || pack == NULL || pack->header.status != SUBSTITUTE);
 
 	// print error contents
-	printf(dbg_err, pack->header.control1, strerror(pack->header.control1));
+	int error_number = pack->header.control1;
+	const char *error_desc = strerror(pack->header.control1);
+	MESSAGE_PRINT(client->socket_fd, err_text, error_number, error_desc);
 
 	return 0;
 }
@@ -262,39 +276,21 @@ int print_escape(struct client *client, struct packet *pack) {
 }
 
 const char *stat_to_str(pack_stat status) {
-	if (status < 0) {
+	if (status < 0 || status >= MAX_STATUS) {
 		return NULL;
 	}
 
 	int index = (int) status;
-
-	if (index < 0 || index >= status_str_len) {
-		return NULL;
-	}
-
-	return status_str[index];
+	return status_str_arr[index].name;
 }
 
-const char *enq_cont_to_str(char control1) {
-	if (control1 < 0) {
+const char *enq_cont_to_str(pack_con1 control1) {
+	if (control1 < 0 || control1 >= MAX_ENQUIRY) {
 		return NULL;
 	}
 
 	int index = (int) control1;
-
-	if (index > enquiry_str_len) {
-		return NULL;
-	}
-
-	return enquiry_str[index];
-}
-
-const char *pack_id_to_str(int id) {
-	if (id < 0 || id > packet_id_len) {
-		return NULL;
-	}
-
-	return packet_id[id];
+	return enquiry_str_arr[index].name;
 }
 
 const char *msg_header() {

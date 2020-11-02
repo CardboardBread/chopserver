@@ -11,15 +11,50 @@
 #include "choppacket.h"
 
 /*
+ * Parsing Function Array
+ */
+const status_function parsers[MAX_STATUS] = {
+		NULL,					// 0
+		parse_long_header,		// 1
+		parse_text,				// 2
+		NULL,					// 3
+		NULL,					// 4
+		parse_enquiry,			// 5
+		parse_acknowledge,		// 6
+		parse_wakeup,			// 7
+		NULL,					// 8
+		NULL,					// 9
+		NULL,					// 10
+		NULL,					// 11
+		NULL,					// 12
+		NULL,					// 13
+		NULL,					// 14
+		NULL,					// 15
+		NULL,					// 16
+		NULL,					// 17
+		NULL,					// 18
+		NULL,					// 19
+		NULL,					// 20
+		parse_neg_acknowledge,	// 21
+		parse_idle,				// 22
+		NULL,					// 23
+		NULL,					// 24
+		NULL,					// 25
+		parse_error,			// 26
+		parse_escape,			// 27
+		NULL,					// 28
+		NULL,					// 29
+		NULL,					// 30
+		NULL					// 31
+};
+
+/*
 * Sending functions
 */
 
 int write_dataless(struct client *cli, struct packet_header header) {
 	// precondition for invalid arguments
-	if (cli == NULL) {
-		DEBUG_PRINT("invalid argument");
-		return -EINVAL;
-	}
+	INVAL_CHECK(cli == NULL);
 
 	// mark client outgoing flag with status
 	cli->out_flag = header.status;
@@ -49,15 +84,15 @@ int write_dataless(struct client *cli, struct packet_header header) {
 		return -1;
 	}
 
-	// demark client outgoing flag
-	cli->out_flag = 0;
-
 	return ret;
 }
 
 int write_datapack(struct client *cli, struct packet_header header, const char *buf, size_t buf_len) {
 	// check valid arguments
 	INVAL_CHECK(cli == NULL || buf == NULL || buf_len < 1);
+
+	// mark client outgoing flag with status
+	cli->out_flag = header.status;
 
 	// initalize packet
 	struct packet *out;
@@ -100,113 +135,41 @@ int parse_header(struct client *cli, struct packet *pack) {
 	// precondition for invalid arguments
 	INVAL_CHECK(cli == NULL || pack == NULL);
 
-	// parse the status
-	int status = 0;
-	switch (pack->header.status) {
-		case NULL_BYTE:
-			DEBUG_PRINT("received NULL header");
-			break;
+	// mark client incoming flag with status
+	cli->inc_flag = pack->header.status;
 
-		case START_HEADER:
-			DEBUG_PRINT("received extended header");
-			status = parse_long_header(cli, pack);
-			break;
+	int subcall = 0;
+	int sub_index = pack->header.status;
+	status_function parser = parsers[sub_index];
 
-		case START_TEXT:
-			DEBUG_PRINT("received text header");
-			status = parse_text(cli, pack);
-
-			// print incoming text
-			if (print_text(cli, pack) < 0) {
-				DEBUG_PRINT("failed print");
-				return -1;
-			}
-			break;
-
-		case ENQUIRY:
-			DEBUG_PRINT("received enquiry header");
-			status = parse_enquiry(cli, pack);
-
-			// print incoming enquiry
-			if (print_enquiry(cli, pack) < 0) {
-				DEBUG_PRINT("failed print");
-				return -1;
-			}
-			break;
-
-		case ACKNOWLEDGE:
-			DEBUG_PRINT("received acknowledge header");
-			status = parse_acknowledge(cli, pack);
-
-			// print incoming acknowledge
-			if (print_acknowledge(cli, pack) < 0) {
-				DEBUG_PRINT("failed print");
-				return -1;
-			}
-			break;
-
-		case WAKEUP:
-			DEBUG_PRINT("received wakeup header");
-			status = parse_wakeup(cli, pack);
-
-			// print incoming wakeup
-			if (print_wakeup(cli, pack) < 0) {
-				DEBUG_PRINT("failed print");
-				return -1;
-			}
-			break;
-
-		case NEG_ACKNOWLEDGE:
-			DEBUG_PRINT("received negative acknowledge header");
-			status = parse_neg_acknowledge(cli, pack);
-
-			// print incoming negative acknowledge
-			if (print_neg_acknowledge(cli, pack) < 0) {
-				DEBUG_PRINT("failed print");
-				return -1;
-			}
-			break;
-
-		case IDLE:
-			DEBUG_PRINT("received idle header");
-			status = parse_idle(cli, pack);
-
-			// print incoming idle
-			if (print_idle(cli, pack) < 0) {
-				DEBUG_PRINT("failed print");
-				return -1;
-			}
-			break;
-
-		case SUBSTITUTE:
-			DEBUG_PRINT("received error header");
-			status = parse_error(cli, pack);
-
-			// print incoming error
-			if (print_error(cli, pack) < 0) {
-				DEBUG_PRINT("failed print");
-				return -1;
-			}
-			break;
-
-		case ESCAPE:
-			DEBUG_PRINT("received escape header");
-			status = parse_escape(cli, pack);
-
-			// print incoming escape
-			if (print_escape(cli, pack) < 0) {
-				DEBUG_PRINT("failed print");
-				return -1;
-			}
-			break;
-
-		default: // unsupported/invalid
-			DEBUG_PRINT("received invalid header");
-			status = -1;
-			break;
+	// null status
+	if (sub_index == 0) {
+		DEBUG_PRINT("received NULL header");
+		return subcall;
 	}
 
-	return status;
+	// unsupported/invalid status
+	if (parser == NULL) {
+		DEBUG_PRINT("received invalid header");
+		return -ENOTSUP;
+	}
+
+	// call parsing function
+	DEBUG_PRINT("received %s header", status_str_arr[sub_index].name);
+	subcall = parsers[sub_index](cli, pack);
+	if (subcall < 0) {
+		DEBUG_PRINT("failed parse");
+		return subcall;
+	}
+
+	// call printing function
+	subcall = print_packet(cli, pack);
+	if (subcall < 0) {
+		DEBUG_PRINT("failed print");
+		return subcall;
+	}
+
+	return subcall;
 }
 
 int parse_long_header(struct client *cli, struct packet *pack) {

@@ -53,6 +53,8 @@
  */
 
 #define MIN_FD 0
+#define MAX_STATUS 32
+#define MAX_ENQUIRY 4
 
 /*
  * Type Definitions // TODO: create shortcut to insert proper specifier for printing
@@ -75,10 +77,10 @@ struct buffer {
 };
 
 struct packet_header {
-		pack_head head;
-		pack_stat status;
-		pack_con1 control1;
-		pack_con2 control2;
+	pack_head head;
+	pack_stat status;
+	pack_con1 control1;
+	pack_con2 control2;
 };
 
 struct packet {
@@ -106,6 +108,25 @@ struct client {
 	pack_stat out_flag; // what the client is sending
 	size_t window; // how much data the client can pass at once
 };
+
+struct status {
+	pack_stat value;
+	const char *name;
+};
+
+/*
+ * Shortcut Type Definitions
+ */
+
+typedef int (*status_function)(struct client *, struct packet *);
+
+/*
+ * Variables
+ */
+
+extern const struct status status_str_arr[MAX_STATUS];
+
+extern const struct status enquiry_str_arr[MAX_ENQUIRY];
 
 /*
  * Structure Management Functions
