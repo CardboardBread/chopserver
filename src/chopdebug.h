@@ -15,7 +15,7 @@ static const int msg_fd = STDOUT_FILENO;
 static const char dbg_fcn_head[] = "[DEBUG][%s]: ";
 static const char dbg_fcn_thr_head[] = "[DEBUG][%lu][%s]: ";
 static const char dbg_err[] = "[ERRNO %d]: %s\n";
-static const char dbg_pack[] = "PACKET{%d:%d:%d:%d}";
+static const char dbg_pack[] = "PACKET{%hhd:%hhd:%hhd:%hhd}";
 static const char msg_tail[] = "\n";
 
 static const char recv_text_start[] = "\"";

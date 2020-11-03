@@ -260,7 +260,7 @@ int buf_contains_symbol(const char *buf, size_t len, char symbol) {
 	// loop through buffer until first symbol is found
 	for (size_t index = 0; index < len; index++) {
 		if (buf[index] == symbol) {
-			DEBUG_PRINT("char %hd found at %zu", symbol, index);
+			DEBUG_PRINT("char %hhd found at %zu", symbol, index);
 			return index;
 		}
 	}
