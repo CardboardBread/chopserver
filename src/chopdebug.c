@@ -11,7 +11,7 @@
 /*
  * Client/Server Print Headers
  */
-int header_type = 2;
+int header_type = -1;
 static const char *all_headers[] = {
 		"[CLIENT %d]: ",
 		"[SERVER %d]: "
@@ -70,6 +70,9 @@ void debug_print(const char *function, const char *format, ...) {
 	// saving errno
 	int errsav = errno;
 
+	// grab id of calling thread
+	unsigned long caller = pthread_self();
+
 	// capturing variable argument list
 	va_list args;
 	va_start(args, format);
@@ -77,18 +80,16 @@ void debug_print(const char *function, const char *format, ...) {
 	// lock access to the print stream
 	pthread_mutex_lock(&print_lock);
 
-	// print header with calling thread's shortened id
-	unsigned long caller = pthread_self();
-	dprintf(debug_fd, dbg_fcn_thr_head, caller, function);
+	// print standard or error header
+	if (errsav > 0) {
+		dprintf(debug_fd, dbg_err, errsav, caller, function, strerror(errsav));
+	} else {
+		dprintf(debug_fd, dbg_head, caller, function);
+	}
 
-	// printing argument
+	// print arguments and tail
 	vdprintf(debug_fd, format, args);
 	dprintf(debug_fd, msg_tail);
-
-	// in case errno is nonzero
-	if (errsav > 0) {
-		dprintf(debug_fd, dbg_err, errsav, strerror(errsav));
-	}
 
 	// unlock access to the debug stream
 	pthread_mutex_unlock(&print_lock);
@@ -100,9 +101,9 @@ void debug_print(const char *function, const char *format, ...) {
 	return;
 }
 
-void message_print(int socketfd, const char *format, ...) {
+void message_print(int caller_id, const char *format, ...) {
 	// check valid arguments
-	if (format == NULL) {
+	if (format == NULL || header_type < 0) {
 		return;
 	}
 
@@ -117,7 +118,7 @@ void message_print(int socketfd, const char *format, ...) {
 	pthread_mutex_lock(&print_lock);
 
 	// printing argument
-	dprintf(msg_fd, msg_header(), socketfd);
+	dprintf(msg_fd, msg_header(), caller_id);
 	vdprintf(msg_fd, format, args);
 	dprintf(msg_fd, msg_tail);
 

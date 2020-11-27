@@ -8,28 +8,6 @@
 
 #include "hashtable.h"
 
-/*
- * Structures
- */
-
-struct hash_entry_str {
-	struct hash_entry_str *next;
-	hash_key key;
-	hash_value value;
-};
-
-struct hash_bucket_str {
-	struct hash_entry_str *head;
-	size_t count;
-	pthread_rwlock_t lock;
-};
-
-struct hash_table_str {
-	size_t size;
-	struct hash_bucket_str *buckets;
-	pthread_rwlock_t lock;
-};
-
 static bool is_prime(size_t value) {
 	// only positive primes
 	assert(value > 0);

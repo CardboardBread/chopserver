@@ -4,14 +4,6 @@
 #include "chopconst.h"
 
 /*
- * Sending functions
- */
-
-int write_dataless(struct client *cli, struct packet_header header);
-
-int write_datapack(struct client *cli, struct packet_header header, const char *buf, size_t buf_len);
-
-/*
  * Receiving functions
  */
 

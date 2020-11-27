@@ -9,6 +9,7 @@
 #include "chopdata.h"
 #include "chopdebug.h"
 #include "choppacket.h"
+#include "chopsend.h"
 
 /*
  * Parsing Function Array
@@ -47,85 +48,6 @@ const status_function parsers[MAX_STATUS] = {
 		NULL,					// 30
 		NULL					// 31
 };
-
-/*
-* Sending functions
-*/
-
-int write_dataless(struct client *cli, struct packet_header header) {
-	// precondition for invalid arguments
-	INVAL_CHECK(cli == NULL);
-
-	// mark client outgoing flag with status
-	cli->out_flag = header.status;
-
-	// initalize packet
-	struct packet *out;
-	if (init_packet(&out) < 0) {
-		DEBUG_PRINT("failed init packet");
-		return -1;
-	}
-
-	// setting header value
-	out->header = header;
-
-	// write to client
-	int ret = write_packet(cli, out);
-	if (ret < 0) {
-		DEBUG_PRINT("failed write");
-		cli->inc_flag = CANCEL;
-		cli->out_flag = CANCEL;
-		return ret;
-	}
-
-	// destroy allocated packet
-	if (destroy_packet(&out) < 0) {
-		DEBUG_PRINT("failed packet destroy");
-		return -1;
-	}
-
-	return ret;
-}
-
-int write_datapack(struct client *cli, struct packet_header header, const char *buf, size_t buf_len) {
-	// check valid arguments
-	INVAL_CHECK(cli == NULL || buf == NULL || buf_len < 1);
-
-	// mark client outgoing flag with status
-	cli->out_flag = header.status;
-
-	// initalize packet
-	struct packet *out;
-	if (init_packet(&out) < 0) {
-		DEBUG_PRINT("failed init packet");
-		return -ENOMEM;
-	}
-
-	// setting header value
-	out->header = header;
-
-	// copy data into new packet with client-defined segments
-	if (assemble_data(out, buf, buf_len, cli->window) < 0) {
-		DEBUG_PRINT("failed data assembly");
-		return -1;
-	}
-
-	// write to client
-	if (write_packet(cli, out) < 0) {
-		DEBUG_PRINT("failed write");
-		cli->inc_flag = CANCEL;
-		cli->out_flag = CANCEL;
-		return -1;
-	}
-
-	// destroy allocated packet
-	if (destroy_packet(&out) < 0) {
-		DEBUG_PRINT("failed packet destroy");
-		return -1;
-	}
-
-	return 0;
-}
 
 /*
 * Receiving Functions
@@ -220,9 +142,10 @@ int parse_text(struct client *cli, struct packet *pack) {
 		}
 	}
 
-	if (write_dataless(cli, (struct packet_header) {0, ACKNOWLEDGE, START_TEXT, 0}) < 0) {
+	// confirm text
+	if (send_ackn(cli, START_TEXT) < 0) {
 		DEBUG_PRINT("failed confirm packet");
-		return -1;
+		return -errno;
 	}
 
 	return 0;
@@ -273,15 +196,14 @@ int parse_enquiry(struct client *cli, struct packet *pack) {
 	// precondition for invalid argments
 	INVAL_CHECK(cli == NULL || pack == NULL);
 
-	time_t current_time;
 	switch (pack->header.control1) {
 		case ENQUIRY_NORMAL:
 			DEBUG_PRINT("normal enquiry");
 
 			// just return an acknowledge
-			if (write_dataless(cli, (struct packet_header) {0, ACKNOWLEDGE, ENQUIRY, 0}) < 0) {
+			if (send_ackn(cli, ENQUIRY) < 0) {
 				DEBUG_PRINT("failed acknowledge packet");
-				return -1;
+				return -errno;
 			}
 			break;
 
@@ -289,9 +211,9 @@ int parse_enquiry(struct client *cli, struct packet *pack) {
 			DEBUG_PRINT("return enquiry");
 
 			// return a enquiry signal 0
-			if (write_dataless(cli, (struct packet_header) {0, ENQUIRY, 0, 0}) < 0) {
+			if (send_enqu(cli, ENQUIRY_NORMAL) < 0) {
 				DEBUG_PRINT("failed enquiry return");
-				return -1;
+				return -errno;
 			}
 			break;
 
@@ -304,7 +226,7 @@ int parse_enquiry(struct client *cli, struct packet *pack) {
 			}
 
 			// return acknowledge
-			if (write_dataless(cli, (struct packet_header) {0, ACKNOWLEDGE, ENQUIRY, 0}) < 0) {
+			if (send_ackn(cli, ENQUIRY) < 0) {
 				DEBUG_PRINT("failed acknowledge packet");
 				return -1;
 			}
@@ -314,9 +236,7 @@ int parse_enquiry(struct client *cli, struct packet *pack) {
 			DEBUG_PRINT("time request");
 
 			// return time enquiry packet
-			current_time = time(NULL);
-			if (write_datapack(cli, (struct packet_header) {0, ENQUIRY, ENQUIRY_TIME, sizeof(time_t)},
-							   (const char *) &current_time, sizeof(time_t)) < 0) {
+			if (send_enqu(cli, ENQUIRY_TIME) < 0) {
 				DEBUG_PRINT("failed time enquiry return");
 				return -1;
 			}
@@ -382,7 +302,7 @@ int parse_wakeup(struct client *cli, struct packet *pack) {
 		cli->inc_flag = NULL_BYTE;
 
 		// confirm client wake
-		if (write_dataless(cli, (struct packet_header) {0, ACKNOWLEDGE, WAKEUP, 0}) < 0) {
+		if (send_ackn(cli, WAKEUP) < 0) {
 			DEBUG_PRINT("failed confirm packet");
 			return -1;
 		}
@@ -390,7 +310,7 @@ int parse_wakeup(struct client *cli, struct packet *pack) {
 		DEBUG_PRINT("client %d now awake", cli->socket_fd);
 	} else {
 		// refuse client wake
-		if (write_dataless(cli, (struct packet_header) {0, NEG_ACKNOWLEDGE, WAKEUP, 0}) < 0) {
+		if (send_neg_ackn(cli, WAKEUP) < 0) {
 			DEBUG_PRINT("failed deny packet");
 			return -1;
 		}
@@ -444,7 +364,7 @@ int parse_idle(struct client *cli, struct packet *pack) {
 		cli->inc_flag = IDLE;
 
 		// confirm client idle
-		if (write_dataless(cli, (struct packet_header) {0, ACKNOWLEDGE, IDLE, 0}) < 0) {
+		if (send_ackn(cli, IDLE) < 0) {
 			DEBUG_PRINT("failed confirm packet");
 			return -1;
 		}
@@ -452,7 +372,7 @@ int parse_idle(struct client *cli, struct packet *pack) {
 		DEBUG_PRINT("client %d now sleeping", cli->socket_fd);
 	} else {
 		// refuse client idle
-		if (write_dataless(cli, (struct packet_header) {0, NEG_ACKNOWLEDGE, IDLE, 0}) < 0) {
+		if (send_neg_ackn(cli, IDLE) < 0) {
 			DEBUG_PRINT("failed deny packet");
 			return -1;
 		}
@@ -468,7 +388,7 @@ int parse_error(struct client *cli, struct packet *pack) {
 	INVAL_CHECK(cli == NULL || pack == NULL);
 
 	// confirm error
-	if (write_dataless(cli, (struct packet_header) {0, ACKNOWLEDGE, SUBSTITUTE, 0}) < 0) {
+	if (send_ackn(cli, SUBSTITUTE) < 0) {
 		DEBUG_PRINT("failed confirm packet");
 		return -1;
 	}
@@ -482,7 +402,7 @@ int parse_escape(struct client *cli, struct packet *pack) {
 	INVAL_CHECK(cli == NULL || pack == NULL);
 
 	// confirm client escape
-	if (write_dataless(cli, (struct packet_header) {0, ACKNOWLEDGE, ESCAPE, 0}) < 0) {
+	if (send_ackn(cli, ESCAPE) < 0) {
 		DEBUG_PRINT("failed confirm packet");
 		return -1;
 	}

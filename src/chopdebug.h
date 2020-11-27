@@ -12,9 +12,8 @@
 
 static const int debug_fd = STDERR_FILENO;
 static const int msg_fd = STDOUT_FILENO;
-static const char dbg_fcn_head[] = "[DEBUG][%s]: ";
-static const char dbg_fcn_thr_head[] = "[DEBUG][%lu][%s]: ";
-static const char dbg_err[] = "[ERRNO %d]: %s\n";
+static const char dbg_head[] = "[DEBUG][%lu][%s]: ";
+static const char dbg_err[] = "[ERROR %d][%lu][%s]: {%s}, ";
 static const char dbg_pack[] = "PACKET{%hhd:%hhd:%hhd:%hhd}";
 static const char msg_tail[] = "\n";
 
@@ -106,7 +105,7 @@ const char *msg_header();
 #define DEBUG_PRINT(fmt, args...) no_operation(fmt, ## args)
 #endif
 
-#define MESSAGE_PRINT(fd, fmt, args...) message_print(fd, fmt, ## args)
+#define MESSAGE_PRINT(id, fmt, args...) message_print(id, fmt, ## args)
 
 // Don't print in non-debug builds
 #ifndef NDEBUG

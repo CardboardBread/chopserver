@@ -46,14 +46,12 @@ int read_data(struct client *cli, struct packet *pack, size_t remaining) {
 	INVAL_CHECK(cli == NULL || pack == NULL || remaining < 0);
 
 	// calculate how many buffers will hold all the incoming data
-	size_t buffers = remaining / cli->window + (remaining % cli->window != 0);
+	size_t buffers = WRAP_DIV(remaining, cli->window);
 
 	// loop as many times as new buffers are needed
 	size_t total = 0;
-	size_t expected;
-	ssize_t bytes_read;
-	struct buffer *receive;
 	for (size_t i = 0; i < buffers; i++) {
+		struct buffer *receive;
 
 		// allocate space to hold incoming data
 		if (append_buffer(pack, cli->window, &receive) < 0) {
@@ -62,8 +60,8 @@ int read_data(struct client *cli, struct packet *pack, size_t remaining) {
 		}
 
 		// read expected bytes per data segment
-		expected = (receive->bufsize > remaining) ? remaining : receive->bufsize;
-		bytes_read = force_read(cli->socket_fd, receive->buf, expected);
+		size_t expected = (receive->bufsize > remaining) ? remaining : receive->bufsize;
+		ssize_t bytes_read = force_read(cli->socket_fd, receive->buf, expected);
 		if (bytes_read != expected) {
 			// in case read isn't perfect
 			if (bytes_read < 0) {
@@ -151,15 +149,13 @@ int write_packet(struct client *cli, struct packet *pack) {
 
     // loop through all buffers in packet's data section
     size_t total = 0;
-    size_t buffer_index = 0;
-    size_t data_expected;
-    ssize_t data_written;
     struct buffer *segment;
     for (segment = pack->data; segment != NULL; segment = segment->next) {
+		size_t buffer_index = 0;
 
         // write buffer to target (if any)
-		data_expected = segment->inbuf;
-        data_written = force_write(cli->socket_fd, segment->buf, data_expected);
+		size_t data_expected = segment->inbuf;
+		ssize_t data_written = force_write(cli->socket_fd, segment->buf, data_expected);
         if (data_written != data_expected) {
             // in case write was not perfectly successful
             if (data_written < 0) {
@@ -288,11 +284,10 @@ int assemble_data(struct packet *pack, const char *buf, size_t buf_len, size_t f
 	size_t buffers = buf_len / fragment_size + (buf_len % fragment_size != 0);
 
 	// create and fill the calculated number of buffers
-	size_t expected;
 	size_t remaining = buf_len;
 	const char *depth = buf;
-	struct buffer *receive;
 	for (size_t i = 0; i < buffers; i++) {
+		struct buffer *receive;
 
 		// allocate space to hold segment
 		if (append_buffer(pack, fragment_size, &receive) < 0) {
@@ -301,7 +296,7 @@ int assemble_data(struct packet *pack, const char *buf, size_t buf_len, size_t f
 		}
 
 		// copy expected bytes to buffer
-		expected = (receive->bufsize > remaining) ? remaining : receive->bufsize;
+		size_t expected = (receive->bufsize > remaining) ? remaining : receive->bufsize;
 		memmove(receive->buf, depth, expected);
 
 		// update progress variables
@@ -468,9 +463,8 @@ int force_read(int input_fd, char *buffer, size_t incoming) {
 
 	// keep attempting to read all the data we expect
 	size_t received = 0;
-	ssize_t bytes_read;
 	while (incoming > 0) {
-		bytes_read = read(input_fd, buffer + received, incoming);
+		ssize_t bytes_read = read(input_fd, buffer + received, incoming);
 		if (bytes_read < 0) {
 			// error encountered while reading
 			DEBUG_PRINT("failed force %zu bytes in", incoming);
@@ -493,9 +487,8 @@ int force_write(int output_fd, const char *buffer, size_t outgoing) {
 	INVAL_CHECK(output_fd < MIN_FD || buffer == NULL || outgoing < 0);
 
 	size_t sent = 0;
-	ssize_t bytes_written;
 	while (outgoing > 0) {
-		bytes_written = write(output_fd, buffer + sent, outgoing);
+		ssize_t bytes_written = write(output_fd, buffer + sent, outgoing);
 		if (bytes_written < 0) {
 			// error encountered while writing
 			DEBUG_PRINT("failed force %zu bytes out", outgoing);

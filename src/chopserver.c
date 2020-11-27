@@ -9,6 +9,7 @@
 #include "chopdebug.h"
 #include "choppacket.h"
 #include "chopsocket.h"
+#include "chopsend.h"
 
 #ifndef PORT
 #define PORT 50001
@@ -117,9 +118,7 @@ int main(void) {
 			current_time = time(NULL);
 			for (int i = 0; i < host->max_connections; i++) {
 				if (host->clients[i] != NULL) {
-					if (write_datapack(host->clients[i],
-									   (struct packet_header) {0, ENQUIRY, ENQUIRY_TIME, sizeof(time_t)},
-									   (const char *) &current_time, sizeof(time_t)) < 0) {
+					if (send_enqu(host->clients[i], ENQUIRY_TIME) < 0) {
 						DEBUG_PRINT("failed time update to client %d", host->clients[i]->socket_fd);
 					}
 				}

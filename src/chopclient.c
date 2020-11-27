@@ -9,6 +9,7 @@
 #include "chopdata.h"
 #include "chopdebug.h"
 #include "choppacket.h"
+#include "chopsend.h"
 
 #define BUF_SIZE 255
 
@@ -89,7 +90,6 @@ int main(void) {
 		}
 
 		// selecting
-		time_t current_time;
 		listen_fds = all_fds;
 		int nready = select(max_fd + 1, &listen_fds, NULL, NULL, &timeout);
 		if (nready < 0) {
@@ -97,11 +97,7 @@ int main(void) {
 			exit(1);
 		} if (nready == 0) {
 			DEBUG_PRINT("timeout reached, resetting");
-
-			current_time = time(NULL);
-			if (write_datapack(server_connection,
-							   (struct packet_header) {0, ENQUIRY, ENQUIRY_TIME, sizeof(time_t)},
-							   (const char *) &current_time, sizeof(time_t)) < 0) {
+			if (send_enqu(server_connection, ENQUIRY_TIME) < 0) {
 				DEBUG_PRINT("failed time update to server");
 			}
 		}
@@ -136,63 +132,56 @@ int main(void) {
 			// setting values of header
 			if (strcmp(buffer, "exit") == 0) {
 				// exit
-				if (write_dataless(server_connection, (struct packet_header) {0, ESCAPE, 0, 0}) < 0) {
+				if (send_exit(server_connection) < 0) {
 					DEBUG_PRINT("failed packet write");
 					exit(1);
 				}
 
 			} else if (strcmp(buffer, "ping") == 0) {
 				// regular ping
-				if (write_dataless(server_connection,
-					   (struct packet_header) {0, ENQUIRY, ENQUIRY_NORMAL, 0}) < 0) {
+				if (send_enqu(server_connection, ENQUIRY_NORMAL) < 0) {
 					DEBUG_PRINT("failed packet write");
 					exit(1);
 				}
 
 			} else if (strcmp(buffer, "pingret") == 0) {
 				// returning ping
-				if (write_dataless(server_connection,
-					   (struct packet_header) {0, ENQUIRY, ENQUIRY_RETURN, 0}) < 0) {
+				if (send_enqu(server_connection, ENQUIRY_RETURN) < 0) {
 					DEBUG_PRINT("failed packet write");
 					exit(1);
 				}
 
 			} else if (strcmp(buffer, "pingtime") == 0) {
 				// sending time ping
-				current_time = time(NULL);
-				if (write_datapack(server_connection,
-								   (struct packet_header){0, ENQUIRY, ENQUIRY_TIME, sizeof(time_t)},
-								   (const char *) &current_time, sizeof(time_t)) < 0) {
+				if (send_enqu(server_connection, ENQUIRY_TIME) < 0) {
 					DEBUG_PRINT("failed packet write");
 					exit(1);
 				}
 
 			} else if (strcmp(buffer, "pingtimeret") == 0) {
 				// requesting time ping
-				if (write_dataless(server_connection,
-					   (struct packet_header) {0, ENQUIRY, ENQUIRY_RTIME, 0}) < 0) {
+				if (send_enqu(server_connection, ENQUIRY_RTIME) < 0) {
 					DEBUG_PRINT("failed packet write");
 					exit(1);
 				}
 
 			} else if (strcmp(buffer, "sleep") == 0) {
 				// sleep request
-				if (write_dataless(server_connection, (struct packet_header) {0, IDLE, 0, 0}) < 0) {
+				if (send_idle(server_connection) < 0) {
 					DEBUG_PRINT("failed packet write");
 					exit(1);
 				}
 
 			} else if (strcmp(buffer, "wake") == 0) {
 				// wake request
-				if (write_dataless(server_connection, (struct packet_header) {0, WAKEUP, 0, 0}) < 0) {
+				if (send_wake(server_connection) < 0) {
 					DEBUG_PRINT("failed packet write");
 					exit(1);
 				}
 
 			} else {
 				// send user input
-				if (write_datapack(server_connection,
-					   (struct packet_header) {0, START_TEXT, 1, num_read}, buffer, num_read) < 0) {
+				if (send_text(server_connection, buffer, num_read) < 0) {
 					DEBUG_PRINT("failed sending user input");
 					exit(1);
 				}

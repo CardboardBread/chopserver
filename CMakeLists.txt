@@ -8,5 +8,22 @@ add_compile_options(-Werror -Wall)
 
 link_libraries(pthread)
 
-add_executable(chopserver src/chopserver.c src/chopconn.c src/chopconst.c src/chopdata.c src/chopdebug.c src/choppacket.c src/chopsocket.c)
-add_executable(chopclient src/chopclient.c src/chopconn.c src/chopconst.c src/chopdata.c src/chopdebug.c src/choppacket.c src/chopsocket.c)
+add_executable(chopserver
+        src/chopserver.c
+        src/chopconn.c
+        src/chopconst.c
+        src/chopdata.c
+        src/chopdebug.c
+        src/choppacket.c
+        src/chopsocket.c
+        src/chopsend.c)
+
+add_executable(chopclient
+        src/chopclient.c
+        src/chopconn.c
+        src/chopconst.c
+        src/chopdata.c
+        src/chopdebug.c
+        src/choppacket.c
+        src/chopsocket.c
+        src/chopsend.c)

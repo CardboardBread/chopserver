@@ -318,7 +318,11 @@ int realloc_buffer(struct buffer *target, size_t size) {
 	INVAL_CHECK(target == NULL || size < 1);
 
 	// TODO: check for reallocation in-place
-	// TODO: check for same size reallocation
+
+	// no reallocation if the buffer doesn't change
+	if (size == target->bufsize) {
+		return 0;
+	}
 
 	// allocate new buffer
 	char *new_mem = (char *) calloc(size, sizeof(char));

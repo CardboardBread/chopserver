@@ -56,8 +56,13 @@
 #define MAX_STATUS 32
 #define MAX_ENQUIRY 4
 
+#define MAX_UVAL(type)  (type) 0 - (type) 1
+
+#define WRAP_DIV(width, seg) width / seg + (width % seg != 0)
+
 /*
  * Type Definitions // TODO: create shortcut to insert proper specifier for printing
+ * Recommended these are unsigned types
  */
 
 typedef uint8_t pack_head;
