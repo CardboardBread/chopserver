@@ -4,6 +4,18 @@
 #include "chopconst.h"
 
 /*
+ * Macro for wrapping some large value within smaller uniform segments, with
+ * overcorrection to ensure full encapsulation
+ */
+#define WRAP_DIV(width, seg) width / seg + (width % seg != 0)
+
+/*
+ * Macro for determining exactly how many elements some collection can hold of
+ * a given total remaining
+ */
+#define EXPECT(seg, rem) (seg > rem) ? rem : seg
+
+/*
  * Given a buffer and a fd to read from, attempts to fill the remaining space
  * of the buffer with as much data as can be gathered in a single call.
  */

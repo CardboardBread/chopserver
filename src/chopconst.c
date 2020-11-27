@@ -53,10 +53,10 @@ const struct status enquiry_str_arr[MAX_ENQUIRY] = {
 };
 
 /*
- * Structure Management Functions
+ * Data Structure Management Functions
  */
 
-int init_buffer(struct buffer **target, size_t size) {
+int create_buffer(struct buffer **target, size_t size) {
 	// check valid argument
 	if (target == NULL || size < 1) {
 		return -EINVAL;
@@ -69,26 +69,91 @@ int init_buffer(struct buffer **target, size_t size) {
 		return -errno;
 	}
 
-	// allocate buffer memory
-	char *mem = (char *) calloc(size, sizeof(char));
-	if (mem == NULL) {
-		DEBUG_PRINT("calloc, memory");
+	// allocate memory and initialize structure fields
+	if (init_buffer(init, size) < 0) {
+		DEBUG_PRINT("init");
 		free(init);
 		return -errno;
 	}
-
-	// initialize structure fields
-	init->buf = mem;
-	init->inbuf = 0;
-	init->bufsize = size;
-	init->next = NULL;
 
 	// set given pointer to new struct
 	*target = init;
 	return 0;
 }
 
-int init_packet(struct packet **target) {
+int init_buffer(struct buffer *target, size_t size) {
+	// check valid argument
+	if (target == NULL || size < 1) {
+		return -EINVAL;
+	}
+
+	// allocate buffer memory
+	char *mem = (char *) calloc(size, sizeof(char));
+	if (mem == NULL) {
+		DEBUG_PRINT("calloc, memory");
+		return -errno;
+	}
+
+	// initialize structure fields
+	target->buf = mem;
+	target->inbuf = 0;
+	target->bufsize = size;
+	target->next = NULL;
+
+	return 0;
+}
+
+int realloc_buffer(struct buffer *target, size_t size) {
+	INVAL_CHECK(target == NULL || size < 1);
+
+	// TODO: check for reallocation in-place
+
+	// no reallocation if the buffer doesn't change
+	if (size == target->bufsize) {
+		return 0;
+	}
+
+	char *old_mem = target->buf;
+	struct buffer *old_next = target->next;
+
+	// reinitialize buffer with new memory
+	if (init_buffer(target, size) < 0) {
+		DEBUG_PRINT("init");
+		return -errno;
+	}
+
+	// free old buffer, retain next ptr
+	free(old_mem);
+	target->next = old_next;
+	return 0;
+}
+
+int destroy_buffer(struct buffer **target) {
+	// check valid argument
+	if (target == NULL) {
+		return -EINVAL;
+	}
+
+	// struct already doesn't exist
+	if (*target == NULL) {
+		return 0;
+	}
+
+	// direct reference to structure
+	struct buffer *old = *target;
+
+	// deallocate data section
+	free(old->buf);
+
+	// deallocate structure
+	free(old);
+
+	// dereference holder
+	*target = NULL;
+	return 0;
+}
+
+int create_packet(struct packet **target) {
 	// check valid argument
 	if (target == NULL) {
 		return -EINVAL;
@@ -101,20 +166,83 @@ int init_packet(struct packet **target) {
 		return -errno;
 	}
 
-	// initialize structure fields
-	init->header.head = 0;
-	init->header.status = 0;
-	init->header.control1 = 0;
-	init->header.control2 = 0;
-	init->data = NULL;
-	init->datalen = 0;
+	// reset fields
+	if (init_packet(init) < 0) {
+		DEBUG_PRINT("init");
+		return -errno;
+	}
 
 	// set given pointer to new struct
 	*target = init;
 	return 0;
 }
 
-int init_server(struct server **target, int port, size_t max_conns, size_t queue_len, size_t window) {
+int init_packet(struct packet *target) {
+	// check valid argument
+	if (target == NULL) {
+		return -EINVAL;
+	}
+
+	// initialize structure fields
+	target->header.head = 0;
+	target->header.status = 0;
+	target->header.control1 = 0;
+	target->header.control2 = 0;
+	target->data = NULL;
+	target->datalen = 0;
+
+	return 0;
+}
+
+int empty_packet(struct packet *target) {
+	// check valid argument
+	if (target == NULL) {
+		return -EINVAL;
+	}
+
+	// loop through data segments, dealloc each one
+	struct buffer *cur;
+	struct buffer *next;
+	for (cur = target->data; cur != NULL; cur = next) {
+		next = cur->next;
+		destroy_buffer(&cur);
+	}
+
+	target->datalen = 0;
+
+	return 0;
+}
+
+int destroy_packet(struct packet **target) {
+	// check valid argument
+	if (target == NULL) {
+		return -EINVAL;
+	}
+
+	// struct already doesn't exist
+	if (*target == NULL) {
+		return 0;
+	}
+
+	// direct reference to structure
+	struct packet *old = *target;
+
+	// deallocate all nodes in data section
+	empty_packet(old);
+
+	// deallocate structure
+	free(old);
+
+	// dereference holder
+	*target = NULL;
+	return 0;
+}
+
+/*
+ * Client/Server Manangement Functions
+ */
+
+int create_server(struct server **target, int port, size_t max_conns, size_t queue_len, size_t window) {
 	// check valid argument
 	if (target == NULL || max_conns < 1 || queue_len < 1 || window < 1) {
 		return -EINVAL;
@@ -154,95 +282,12 @@ int init_server(struct server **target, int port, size_t max_conns, size_t queue
 	return 0;
 }
 
-int init_client(struct client **target, size_t window) {
+int init_server(struct server *target, int port, size_t max_conns, size_t queue_len, size_t window) {
 	// check valid argument
-	if (target == NULL || window < 1) {
+	if (target == NULL || max_conns < 1 || queue_len < 1 || window < 1) {
 		return -EINVAL;
 	}
 
-	// allocate structure
-	struct client *init = (struct client *) malloc(sizeof(struct client));
-	if (init == NULL) {
-		DEBUG_PRINT("malloc");
-		return -errno;
-	}
-
-	// initialize structure fields
-	init->socket_fd = -1;
-	init->server_fd = -1;
-	init->inc_flag = 0;
-	init->out_flag = 0;
-	init->window = window;
-
-	// set given pointer to new struct
-	*target = init;
-	return 0;
-}
-
-int destroy_buffer(struct buffer **target) {
-	// check valid argument
-	if (target == NULL) {
-		return -EINVAL;
-	}
-
-	// struct already doesn't exist
-	if (*target == NULL) {
-		return 0;
-	}
-
-	// direct reference to structure
-	struct buffer *old = *target;
-
-	// deallocate data section
-	free(old->buf);
-
-	// deallocate structure
-	free(old);
-
-	// dereference holder
-	*target = NULL;
-	return 0;
-}
-
-int empty_packet(struct packet *target) {
-	// check valid argument
-	if (target == NULL) {
-		return -EINVAL;
-	}
-
-	// loop through data segments, dealloc each one
-	struct buffer *cur;
-	struct buffer *next;
-	for (cur = target->data; cur != NULL; cur = next) {
-		next = cur->next;
-		destroy_buffer(&cur);
-	}
-
-	return 0;
-}
-
-int destroy_packet(struct packet **target) {
-	// check valid argument
-	if (target == NULL) {
-		return -EINVAL;
-	}
-
-	// struct already doesn't exist
-	if (*target == NULL) {
-		return 0;
-	}
-
-	// direct reference to structure
-	struct packet *old = *target;
-
-	// deallocate all nodes in data section
-	empty_packet(old);
-
-	// deallocate structure
-	free(old);
-
-	// dereference holder
-	*target = NULL;
 	return 0;
 }
 
@@ -284,6 +329,31 @@ int destroy_server(struct server **target) {
 	return 0;
 }
 
+int create_client(struct client **target, size_t window) {
+	// check valid argument
+	if (target == NULL || window < 1) {
+		return -EINVAL;
+	}
+
+	// allocate structure
+	struct client *init = (struct client *) malloc(sizeof(struct client));
+	if (init == NULL) {
+		DEBUG_PRINT("malloc");
+		return -errno;
+	}
+
+	// initialize structure fields
+	init->socket_fd = -1;
+	init->server_fd = -1;
+	init->inc_flag = 0;
+	init->out_flag = 0;
+	init->window = window;
+
+	// set given pointer to new struct
+	*target = init;
+	return 0;
+}
+
 int destroy_client(struct client **target) {
 	// check valid argument
 	if (target == NULL) {
@@ -314,31 +384,11 @@ int destroy_client(struct client **target) {
 	return 0;
 }
 
-int realloc_buffer(struct buffer *target, size_t size) {
-	INVAL_CHECK(target == NULL || size < 1);
 
-	// TODO: check for reallocation in-place
 
-	// no reallocation if the buffer doesn't change
-	if (size == target->bufsize) {
-		return 0;
-	}
 
-	// allocate new buffer
-	char *new_mem = (char *) calloc(size, sizeof(char));
-	if (new_mem == NULL) {
-		DEBUG_PRINT("calloc, memory");
-		return -errno;
-	}
 
-	// free old buffer
-	char *old_mem = target->buf;
-	free(old_mem);
 
-	// copy in new buffer
-	target->buf = new_mem;
-	target->bufsize = size;
-	target->inbuf = 0;
 
-	return 0;
-}
+
+

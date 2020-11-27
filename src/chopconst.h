@@ -56,9 +56,11 @@
 #define MAX_STATUS 32
 #define MAX_ENQUIRY 4
 
-#define MAX_UVAL(type)  (type) 0 - (type) 1
-
-#define WRAP_DIV(width, seg) width / seg + (width % seg != 0)
+// Macros for type maximums, sourced from stackoverflow
+#define ISSIGNED(t) (((t)(-1)) < ((t) 0))
+#define UMAXOF(t) (((0x1ULL << ((sizeof(t) * 8ULL) - 1ULL)) - 1ULL) | (0xFULL << ((sizeof(t) * 8ULL) - 4ULL)))
+#define SMAXOF(t) (((0x1ULL << ((sizeof(t) * 8ULL) - 1ULL)) - 1ULL) | (0x7ULL << ((sizeof(t) * 8ULL) - 4ULL)))
+#define MAXOF(t) ((unsigned long long) (ISSIGNED(t) ? SMAXOF(t) : UMAXOF(t)))
 
 /*
  * Type Definitions // TODO: create shortcut to insert proper specifier for printing
@@ -69,6 +71,11 @@ typedef uint8_t pack_head;
 typedef uint8_t pack_stat;
 typedef uint8_t pack_con1;
 typedef uint8_t pack_con2;
+
+static const size_t pack_head_max = UMAXOF(pack_head);
+static const size_t pack_stat_max = UMAXOF(pack_stat);
+static const size_t pack_con1_max = UMAXOF(pack_con1);
+static const size_t pack_con2_max = UMAXOF(pack_con2);
 
 /*
  * Structures
@@ -91,16 +98,16 @@ struct packet_header {
 struct packet {
 	struct packet_header header;
 	struct buffer *data;
-	ssize_t datalen;
+	size_t datalen;
 };
 
 struct server {
+	struct sockaddr_in address;
 	int server_fd;
 	int server_port;
-	struct sockaddr_in address;
 	struct client **clients; // array of client pointers
 	size_t max_connections;
-	int cur_connections;
+	size_t cur_connections;
 	size_t connect_queue;
 	size_t window;
 };
@@ -137,24 +144,56 @@ extern const struct status enquiry_str_arr[MAX_ENQUIRY];
  * Structure Management Functions
  */
 
-int init_buffer(struct buffer **target, size_t size);
+/*
+ * Allocates and initializes a buffer in heap memory, pointing the given ptr at it
+ * Intended for fragmented allocation
+ */
+int create_buffer(struct buffer **target, size_t size);
 
-int init_packet(struct packet **target);
+/*
+ * Readies the buffer structure at the given location for use
+ * Intended for array allocation or stack allocation
+ */
+int init_buffer(struct buffer *target, size_t size);
 
-int init_server(struct server **target, int port, size_t max_conns, size_t queue_len, size_t window);
+/*
+ * Resizes the given buffer to a new size, does not move contents between buffers
+ */
+int realloc_buffer(struct buffer *target, size_t size);
 
-int init_client(struct client **target, size_t window);
-
+/*
+ * Frees all memory related to the target buffer
+ */
 int destroy_buffer(struct buffer **target);
 
+/*
+ * Allocates and initializes a packet in heap memory, pointing the given ptr at it
+ * Intended for fragmented allocation
+ */
+int create_packet(struct packet **target);
+
+/*
+ * Readies the packet structure at the given location for use
+ * Intended for array allocation or stack allocation
+ */
+int init_packet(struct packet *target);
+
+/*
+ * Destroys each buffer within the given packet
+ */
 int empty_packet(struct packet *target);
 
+/*
+ * Frees all memory related to the target packet
+ */
 int destroy_packet(struct packet **target);
+
+int create_server(struct server **target, int port, size_t max_conns, size_t queue_len, size_t window);
 
 int destroy_server(struct server **target);
 
-int destroy_client(struct client **target);
+int create_client(struct client **target, size_t window);
 
-int realloc_buffer(struct buffer *target, size_t size);
+int destroy_client(struct client **target);
 
 #endif

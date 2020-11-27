@@ -60,7 +60,7 @@ int read_data(struct client *cli, struct packet *pack, size_t remaining) {
 		}
 
 		// read expected bytes per data segment
-		size_t expected = (receive->bufsize > remaining) ? remaining : receive->bufsize;
+		size_t expected = EXPECT(receive->bufsize, remaining);
 		ssize_t bytes_read = force_read(cli->socket_fd, receive->buf, expected);
 		if (bytes_read != expected) {
 			// in case read isn't perfect
@@ -281,7 +281,7 @@ int assemble_data(struct packet *pack, const char *buf, size_t buf_len, size_t f
 	INVAL_CHECK(pack == NULL || buf == NULL || buf_len < 0 || fragment_size < 0);
 
 	// calculate how many buffers will hold all the data
-	size_t buffers = buf_len / fragment_size + (buf_len % fragment_size != 0);
+	size_t buffers = WRAP_DIV(buf_len, fragment_size);
 
 	// create and fill the calculated number of buffers
 	size_t remaining = buf_len;
@@ -296,7 +296,7 @@ int assemble_data(struct packet *pack, const char *buf, size_t buf_len, size_t f
 		}
 
 		// copy expected bytes to buffer
-		size_t expected = (receive->bufsize > remaining) ? remaining : receive->bufsize;
+		size_t expected = EXPECT(receive->bufsize, remaining);
 		memmove(receive->buf, depth, expected);
 
 		// update progress variables
@@ -329,7 +329,7 @@ int consolidate_packet(struct packet *pack) {
 
 	// create destination for packet
 	struct buffer *large;
-	int alloc = init_buffer(&large, total);
+	int alloc = create_buffer(&large, total);
 	if (alloc < 0) {
 		return alloc;
 	}
@@ -359,6 +359,7 @@ int fragment_packet(struct packet *pack, size_t window) {
 	char working_buf[window];
 
 	size_t total_frag = 0;
+	size_t pack_depth = 0;
 	struct buffer *cur;
 	for (cur = pack->data; cur != NULL; cur = cur->next) {
 		size_t cur_size = cur->bufsize;
@@ -371,7 +372,7 @@ int fragment_packet(struct packet *pack, size_t window) {
 
 		// check for valid math (catches malformed segments)
 		if (frag_count < 1) {
-			DEBUG_PRINT("fragment calculation failed, buffer %zd is %zu bytes long", pack->datalen, cur_size);
+			DEBUG_PRINT("fragment calculation failed, buffer %zu is %zu bytes long", pack_depth, cur_size);
 			continue;
 		}
 
@@ -401,7 +402,7 @@ int fragment_packet(struct packet *pack, size_t window) {
 			}
 
 			// move some overflow data
-			size_t expected = (new_buf->bufsize > cur_size) ? cur_size : new_buf->bufsize;
+			size_t expected = EXPECT(new_buf->bufsize, cur_size);
 			memmove(new_buf->buf, head, expected);
 
 			// update tracker variable
@@ -420,6 +421,7 @@ int fragment_packet(struct packet *pack, size_t window) {
 
 		// update tracker values
 		total_frag += frag_count;
+		pack_depth++;
 	}
 
 	return 0;
@@ -430,7 +432,7 @@ int append_buffer(struct packet *pack, size_t buffer_len, struct buffer **out) {
 	INVAL_CHECK(pack == NULL || buffer_len < 0);
 
 	struct buffer *container;
-	if (init_buffer(&container, buffer_len) < 0) {
+	if (create_buffer(&container, buffer_len) < 0) {
 		DEBUG_PRINT("failed buffer init");
 		return -ENOMEM;
 	}

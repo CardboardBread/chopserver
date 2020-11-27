@@ -19,7 +19,7 @@ int accept_new_client(struct server *receiver) {
 
 	// init new client
 	struct client *new_client;
-	if (init_client(&new_client, receiver->window) < 0) {
+	if (create_client(&new_client, receiver->window) < 0) {
 		DEBUG_PRINT("init client fail");
 		return -ENOMEM;
 	}
@@ -63,7 +63,7 @@ int establish_server_connection(const char *address, int port, struct client **d
 	INVAL_CHECK(address == NULL || port < 0 || dest == NULL || buf_size < 1);
 
 	// make new client struct
-	if (init_client(dest, buf_size) < 0) {
+	if (create_client(dest, buf_size) < 0) {
 		DEBUG_PRINT("failed to store connection, closing");
 		return -ENOMEM;
 	}
@@ -134,9 +134,9 @@ int process_request(struct client *cli) {
 	// precondition for invalid arguments
 	INVAL_CHECK(cli == NULL);
 
-	// init packet for recieving
+	// init packet for receiving
 	struct packet *pack;
-	if (init_packet(&pack) < 0) {
+	if (create_packet(&pack) < 0) {
 		DEBUG_PRINT("failed packet init");
 		return -ENOMEM;
 	}
@@ -168,7 +168,7 @@ int process_request(struct client *cli) {
 
 	if (destroy_packet(&pack) < 0) {
 	    DEBUG_PRINT("failed packet destroy");
-        return -1;
+        return -errno;
 	}
 
 	return status;

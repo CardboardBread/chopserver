@@ -118,12 +118,12 @@ int parse_text(struct client *cli, struct packet *pack) {
 	INVAL_CHECK(cli == NULL || pack == NULL);
 
 	// translate names for readability
-	int count = pack->header.control1;
-	int width = pack->header.control2;
+	pack_con1 width = pack->header.control1;
+	pack_con2 second = pack->header.control2;
 
 	// signals set to unknown length read
-	if (count == 0 && width == 0) {
-		int long_len = read_long_text(cli, pack);
+	if (width == 0 && second == 1) {
+		ssize_t long_len = read_long_text(cli, pack);
 		if (long_len < 0) {
 			DEBUG_PRINT("long text failed");
 			return -1;
@@ -132,13 +132,10 @@ int parse_text(struct client *cli, struct packet *pack) {
 		DEBUG_PRINT("long text section length %d, %zd segments", long_len, pack->datalen);
 		return 0;
 	} else {
-
 		// read normally
-		int remaining = count * width;
-		int received = read_data(cli, pack, remaining);
-		if (received < 0) {
+		if (read_data(cli, pack, width) < 0) {
 			DEBUG_PRINT("failed normal read");
-			return -1;
+			return -errno;
 		}
 	}
 
@@ -151,12 +148,12 @@ int parse_text(struct client *cli, struct packet *pack) {
 	return 0;
 }
 
-int read_long_text(struct client *cli, struct packet *pack) {
+int read_long_text(struct client *cli, struct packet *pack) { // TODO: update
 	// precondition for invalid arguments
 	INVAL_CHECK(cli == NULL || pack == NULL);
 
 	int found = 1;
-	int total = 0;
+	size_t total = 0;
 	while (found) {
 
 		// allocate buffer to hold incoming data
@@ -166,7 +163,7 @@ int read_long_text(struct client *cli, struct packet *pack) {
 		}
 
 		// read data into new buffer
-		int bytes_read = read(cli->socket_fd, receive->buf, cli->window);
+		ssize_t bytes_read = read(cli->socket_fd, receive->buf, cli->window);
 		if (bytes_read < 0) {
 			DEBUG_PRINT("failed to read long text section");
 			return -errno;
@@ -218,7 +215,7 @@ int parse_enquiry(struct client *cli, struct packet *pack) {
 			break;
 
 		case ENQUIRY_TIME:
-			DEBUG_PRINT("time enquiry %d wide", pack->header.control2);
+			DEBUG_PRINT("time enquiry %u wide", pack->header.control2);
 			// read packet data
 			if (read_data(cli, pack, pack->header.control2) < 0) {
 				DEBUG_PRINT("failed time data read");

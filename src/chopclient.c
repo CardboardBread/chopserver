@@ -118,9 +118,9 @@ int main(void) {
 
 		// reading from stdin, parsing and sending to server
 		int num_read;
-		char buffer[127];
+		char buffer[4096];
 		if (FD_ISSET(STDIN_FILENO, &listen_fds)) {
-			num_read = read(STDIN_FILENO, buffer, 126);
+			num_read = read(STDIN_FILENO, buffer, 4095);
 			if (num_read == 0) break;
 			buffer[num_read] ='\0';
 

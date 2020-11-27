@@ -20,7 +20,7 @@ int write_dataless(struct client *cli, struct packet_header header) {
 
 	// initalize packet
 	struct packet *out;
-	if (init_packet(&out) < 0) {
+	if (create_packet(&out) < 0) {
 		DEBUG_PRINT("failed init packet");
 		return -1;
 	}
@@ -55,7 +55,7 @@ int write_datapack(struct client *cli, struct packet_header header, const char *
 
 	// initialize packet
 	struct packet *out;
-	if (init_packet(&out) < 0) {
+	if (create_packet(&out) < 0) {
 		DEBUG_PRINT("failed init packet");
 		return -ENOMEM;
 	}
@@ -96,7 +96,7 @@ int send_text(struct client *target, const char *buf, size_t buf_len) {
 	// call write_datapack with the proper arguments
 
 	// calculate how muany packets are needed to send all the data
-	size_t packet_max = 8 * target->window;
+	size_t packet_max = pack_con1_max;
 	size_t packet_count = WRAP_DIV(buf_len, packet_max);
 
 	// allocate array of pointers for each packet to be sent
@@ -106,29 +106,39 @@ int send_text(struct client *target, const char *buf, size_t buf_len) {
 		return -ENOMEM;
 	}
 
-	// initialize, fill, and send each packet
+	// initialize and fill each packet
 	size_t sent = 0;
 	for (size_t pack = 0; pack < packet_count; pack++) {
-		struct packet **pack_ptr = packet_ptrs + pack;
-		size_t partition = (packet_max > buf_len) ? buf_len : packet_max;
+		size_t partition = EXPECT(packet_max, buf_len);
 
 		// initialize packet
-		if (init_packet(pack_ptr) < 0) {
+		struct packet **pack_ptr = packet_ptrs + pack;
+		if (create_packet(pack_ptr) < 0) {
 			DEBUG_PRINT("failed allocating packet");
 			return -errno;
 		}
 
-		// calculate data for packet, and set header values
-		struct packet *out = (*pack_ptr);
-		size_t segments = partition / target->window;
-		struct packet_header header = {0, START_TEXT, segments, target->window};
-		out->header = header;
-
 		// copy data into new packet with client-defined segments
-		if (assemble_data(out, buf + sent, partition, target->window) < 0) {
+		struct packet *out = (*pack_ptr);
+		int segments = assemble_data(out, buf + sent, partition, target->window);
+		if (segments < 0) {
 			DEBUG_PRINT("failed data assembly");
 			return -errno;
 		}
+
+		// set header values post-assembly
+		struct packet_header header = {0, START_TEXT, partition, 0};
+		out->header = header;
+
+		// update tracker
+		sent += partition;
+		buf_len -= partition;
+	}
+
+	// send and destroy each packet
+	for (size_t pack = 0; pack < packet_count; pack++) {
+		struct packet **pack_ptr = packet_ptrs + pack;
+		struct packet *out = (*pack_ptr);
 
 		// write to client
 		if (write_packet(target, out) < 0) {
@@ -141,11 +151,10 @@ int send_text(struct client *target, const char *buf, size_t buf_len) {
 			DEBUG_PRINT("failed packet destroy");
 			return -errno;
 		}
-
-		// update tracker
-		sent += partition;
 	}
 
+	// free array of packets
+	free(packet_ptrs);
 	DEBUG_PRINT("sent text in %zu packets", packet_count);
 	return 0;
 }

@@ -62,7 +62,7 @@ int main(void) {
 	DEBUG_PRINT("sigint_handler attached");
 
 	// initialize server config
-	if (init_server(&host, PORT, MAX_CONNECTIONS, CONNECTION_QUEUE, BUFSIZE) < 0) {
+	if (create_server(&host, PORT, MAX_CONNECTIONS, CONNECTION_QUEUE, BUFSIZE) < 0) {
 		DEBUG_PRINT("failed server struct init");
 		exit(1);
 	}
@@ -101,7 +101,6 @@ int main(void) {
 		}
 
 		// selecting
-		time_t current_time;
 		listen_fds = all_fds;
 		int nready = select(max_fd + 1, &listen_fds, NULL, NULL, &timeout);
 		if (nready < 0) {
@@ -115,7 +114,6 @@ int main(void) {
 			DEBUG_PRINT("timeout reached, resetting");
 
 			// send time to all clients
-			current_time = time(NULL);
 			for (int i = 0; i < host->max_connections; i++) {
 				if (host->clients[i] != NULL) {
 					if (send_enqu(host->clients[i], ENQUIRY_TIME) < 0) {
