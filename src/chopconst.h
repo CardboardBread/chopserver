@@ -3,6 +3,8 @@
 
 #include <netinet/in.h>
 
+#include "hashtable.h"
+
 /*
  * Packet Macros
  */
@@ -106,10 +108,10 @@ struct server {
 	int server_fd;
 	int server_port;
 	struct client **clients; // array of client pointers
-	size_t max_connections;
-	size_t cur_connections;
-	size_t connect_queue;
-	size_t window;
+	size_t max_connections; // max number of clients allowed connected at once
+	size_t cur_connections; // current clients connected
+	size_t connect_queue; // how many clients can wait to connect at once
+	size_t window; // how much data the server can pass to a client at once
 };
 
 struct client {
@@ -119,6 +121,8 @@ struct client {
 	pack_stat inc_flag; // what the client is receiving
 	pack_stat out_flag; // what the client is sending
 	size_t window; // how much data the client can pass at once
+	hash_table_t *pair_table;
+	size_t send_depth; // how many packets exchanged 'so far'
 };
 
 struct status {
@@ -190,9 +194,13 @@ int destroy_packet(struct packet **target);
 
 int create_server(struct server **target, int port, size_t max_conns, size_t queue_len, size_t window);
 
+int init_server(struct server *target, int port, size_t max_conns, size_t queue_len, size_t window);
+
 int destroy_server(struct server **target);
 
 int create_client(struct client **target, size_t window);
+
+int init_client(struct client *target, size_t window);
 
 int destroy_client(struct client **target);
 

@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <stdbool.h>
-#include <unistd.h>
 #include <assert.h>
 #include <math.h>
 #include <pthread.h>
@@ -179,41 +178,33 @@ struct hash_entry_str *bucket_put(struct hash_bucket_str *target, hash_key key, 
 	struct hash_entry_str *append;
 	assert(target != NULL);
 
-	// loop through bucket, maintaining current and previous elements
-	struct hash_entry_str *prev;
-	struct hash_entry_str *tail;
-	for (tail = target->head, prev = NULL; tail != NULL; tail = tail->next) {
+	// loop through bucket, keeping the previous pointer (or the head pointer)
+	struct hash_entry_str *cur;
+	struct hash_entry_str **cur_ptr;
+	for (cur_ptr = &target->head, cur = target->head; cur != NULL; cur_ptr = &cur->next, cur = cur->next) {
 
 		// remap existing entry to new value
-		if (tail->key == key) {
-			append = tail;
-			tail->value = value;
-			break;
+		if (cur->key == key) {
+			cur->value = value;
+			return cur;
 		}
-
-		prev = tail;
 	}
-	// loop ends with prev at last element and tail null
 
-	// existing entry not remapped
-	if (append == NULL) {
+	// no remapping was done
+	if (cur == NULL) {
 		// create new entry for key-value pair
 		append = entry_create(NULL, key, value);
 		if (append == NULL) {
 			return NULL;
 		}
 
-		// determine if list empty or end reached
-		if (tail == NULL && prev == NULL) {
-			target->head = append;
-		} else {
-			prev->next = append;
-		}
-
+		// add entry to end of bucket
+		*cur_ptr = append;
 		target->count++;
+		return append;
 	}
 
-	return append;
+	return NULL;
 }
 
 struct hash_entry_str *bucket_get_key(struct hash_bucket_str *target, hash_key key) {
@@ -245,23 +236,17 @@ struct hash_entry_str *bucket_get_value(struct hash_bucket_str *target, hash_val
 }
 
 bool bucket_remove(struct hash_bucket_str *target, hash_key key, hash_value *dest) {
-	hash_value copy;
 	assert(target != NULL);
 
 	// loop through bucket, keeping the previous pointer (or the head pointer)
 	struct hash_entry_str *cur;
-	struct hash_entry_str **cur_pte;
-	for (cur_pte = &target->head, cur = target->head; cur != NULL; cur_pte = &cur->next, cur = cur->next) {
+	struct hash_entry_str **cur_ptr;
+	for (cur_ptr = &target->head, cur = target->head; cur != NULL; cur_ptr = &cur->next, cur = cur->next) {
 		if (cur->key == key) {
 			// point over current to next element, destroy current and update bucket
-			*cur_pte = cur->next;
-			copy = entry_destroy(cur, NULL, dest);
+			*cur_ptr = cur->next;
+			entry_destroy(cur, NULL, dest);
 			target->count--;
-
-			// return copy to caller
-			if (dest != NULL) {
-				*dest = copy;
-			}
 			return true;
 		}
 	}

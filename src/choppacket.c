@@ -11,6 +11,8 @@
 #include "choppacket.h"
 #include "chopsend.h"
 
+#include "hashtable.h"
+
 /*
  * Parsing Function Array
  */
@@ -60,6 +62,7 @@ int parse_header(struct client *cli, struct packet *pack) {
 	// mark client incoming flag with status
 	cli->inc_flag = pack->header.status;
 
+	// get packet parser
 	int subcall = 0;
 	int sub_index = pack->header.status;
 	status_function parser = parsers[sub_index];
@@ -91,6 +94,7 @@ int parse_header(struct client *cli, struct packet *pack) {
 		return subcall;
 	}
 
+	cli->send_depth++;
 	return subcall;
 }
 
@@ -207,6 +211,12 @@ int parse_enquiry(struct client *cli, struct packet *pack) {
 		case ENQUIRY_RETURN:
 			DEBUG_PRINT("return enquiry");
 
+			// return an acknowledge
+			if (send_ackn(cli, ENQUIRY) < 0) {
+				DEBUG_PRINT("failed acknowledge packet");
+				return -errno;
+			}
+
 			// return a enquiry signal 0
 			if (send_enqu(cli, ENQUIRY_NORMAL) < 0) {
 				DEBUG_PRINT("failed enquiry return");
@@ -232,6 +242,12 @@ int parse_enquiry(struct client *cli, struct packet *pack) {
 		case ENQUIRY_RTIME:
 			DEBUG_PRINT("time request");
 
+			// return an acknowledge
+			if (send_ackn(cli, ENQUIRY) < 0) {
+				DEBUG_PRINT("failed acknowledge packet");
+				return -errno;
+			}
+
 			// return time enquiry packet
 			if (send_enqu(cli, ENQUIRY_TIME) < 0) {
 				DEBUG_PRINT("failed time enquiry return");
@@ -250,6 +266,19 @@ int parse_enquiry(struct client *cli, struct packet *pack) {
 int parse_acknowledge(struct client *cli, struct packet *pack) {
 	// precondition for invalid argument
 	INVAL_CHECK(cli == NULL || pack == NULL);
+
+	hash_key key = (hash_key) pack->header.head;
+	hash_value val;
+
+	// check for confirming known packet
+	struct packet *reg;
+	if (!table_remove(cli->pair_table, key, &val)) {
+		DEBUG_PRINT("unknown packet confirmed, exchange %zu", key);
+		reg = NULL;
+	} else {
+		DEBUG_PRINT("known packet confirmed, exchange %zu", key);
+		reg = (struct packet *) val;
+	}
 
 	switch (pack->header.control1) {
 		case START_TEXT: // text confirmed
@@ -284,6 +313,12 @@ int parse_acknowledge(struct client *cli, struct packet *pack) {
 		default:
 			DEBUG_PRINT("invalid/unsupported control signal");
 			return -1;
+	}
+
+	// destroy registered packet (if one exists)
+	if (destroy_packet(&reg) < 0) {
+		DEBUG_PRINT("failed paired packet destroy");
+		return -errno;
 	}
 
 	return 0;

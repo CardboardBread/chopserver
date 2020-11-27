@@ -4,8 +4,34 @@
 #include "chopconst.h"
 #include "chopdata.h"
 #include "chopdebug.h"
-#include "choppacket.h"
 #include "chopsend.h"
+
+#include "hashtable.h"
+
+int send_packet(struct client *cli, struct packet *out) {
+	INVAL_CHECK(cli == NULL || out == NULL);
+
+	// do not register acknowledges
+	if (out->header.status != ACKNOWLEDGE) {
+
+		// set head with current send depth
+		out->header.head = cli->send_depth;
+
+		// convert pairing elements to hash types
+		hash_value val = (hash_value) out;
+		hash_key key = (hash_key) cli->send_depth;
+
+		// place outgoing packet in table
+		if (!table_put(cli->pair_table, key, val)) {
+			DEBUG_PRINT("failed packet pair register");
+			return -errno;
+		}
+
+		DEBUG_PRINT("registered packet %d under exchange %u", packet_style(out), key);
+	}
+
+	return write_packet(cli, out);
+}
 
 /*
 * Generic sending functions
@@ -29,18 +55,12 @@ int write_dataless(struct client *cli, struct packet_header header) {
 	out->header = header;
 
 	// write to client
-	int ret = write_packet(cli, out);
+	int ret = send_packet(cli, out);
 	if (ret < 0) {
 		DEBUG_PRINT("failed write");
 		cli->inc_flag = CANCEL;
 		cli->out_flag = CANCEL;
 		return ret;
-	}
-
-	// destroy allocated packet
-	if (destroy_packet(&out) < 0) {
-		DEBUG_PRINT("failed packet destroy");
-		return -1;
 	}
 
 	return ret;
@@ -70,16 +90,10 @@ int write_datapack(struct client *cli, struct packet_header header, const char *
 	}
 
 	// write to client
-	if (write_packet(cli, out) < 0) {
+	if (send_packet(cli, out) < 0) {
 		DEBUG_PRINT("failed write");
 		cli->inc_flag = CANCEL;
 		cli->out_flag = CANCEL;
-		return -1;
-	}
-
-	// destroy allocated packet
-	if (destroy_packet(&out) < 0) {
-		DEBUG_PRINT("failed packet destroy");
 		return -1;
 	}
 
@@ -135,20 +149,14 @@ int send_text(struct client *target, const char *buf, size_t buf_len) {
 		buf_len -= partition;
 	}
 
-	// send and destroy each packet
+	// send each packet
 	for (size_t pack = 0; pack < packet_count; pack++) {
 		struct packet **pack_ptr = packet_ptrs + pack;
 		struct packet *out = (*pack_ptr);
 
 		// write to client
-		if (write_packet(target, out) < 0) {
+		if (send_packet(target, out) < 0) {
 			DEBUG_PRINT("failed packet write");
-			return -errno;
-		}
-
-		// destroy allocated packet
-		if (destroy_packet(pack_ptr) < 0) {
-			DEBUG_PRINT("failed packet destroy");
 			return -errno;
 		}
 	}

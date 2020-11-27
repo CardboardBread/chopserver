@@ -134,7 +134,7 @@ int open_server(struct server *target) {
 	memset(&(self.sin_zero), 0, 8);
 	self.sin_addr.s_addr = INADDR_ANY;
 
-	// create socket for connecting between computers
+	// create a stream (TCP) socket for connecting between computers
 	int sock = socket(PF_INET, SOCK_STREAM, 0);
 	if (sock < 0) {
 		DEBUG_PRINT("socket");
