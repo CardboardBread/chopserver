@@ -8,11 +8,17 @@
 
 #include "hashtable.h"
 
+/*
+ * An interrupt kind of function, for any code that needs to run right before a
+ * packet is sent. Scope is local to this source file since it should only be
+ * called by local functions which can properly interpret the arguments of
+ * outside callers.
+ */
 int send_packet(struct client *cli, struct packet *out) {
 	INVAL_CHECK(cli == NULL || out == NULL);
 
-	// do not register acknowledges
-	if (out->header.status != ACKNOWLEDGE) {
+	// do not register response packets
+	if (out->header.status != ACKNOWLEDGE || out->header.status != NEG_ACKNOWLEDGE) {
 
 		// set head with current send depth
 		out->header.head = cli->send_depth;
@@ -27,6 +33,9 @@ int send_packet(struct client *cli, struct packet *out) {
 			return -errno;
 		}
 
+		// next packet sent should have a different send depth
+		cli->send_depth++;
+
 		DEBUG_PRINT("registered packet %d under exchange %u", packet_style(out), key);
 	}
 
@@ -34,8 +43,8 @@ int send_packet(struct client *cli, struct packet *out) {
 }
 
 /*
-* Generic sending functions
-*/
+ * Generic sending functions
+ */
 
 int write_dataless(struct client *cli, struct packet_header header) {
 	// precondition for invalid arguments
@@ -104,6 +113,12 @@ int write_datapack(struct client *cli, struct packet_header header, const char *
  * Status-specific sending functions
  */
 
+/*
+ * Will allocate all required packets and fill them all before sending them, in
+ * order to keep them sent as close to each other as possible, since sending
+ * packets as soon as we make them may invite some delay between each packet
+ * required to sent the entire given text.
+ */
 int send_text(struct client *target, const char *buf, size_t buf_len) {
 	INVAL_CHECK(target == NULL || buf == NULL || buf_len < 1);
 	// check if we can fit the whole text in one packet header, if not split it up
@@ -189,10 +204,10 @@ int send_enqu(struct client *target, pack_con1 type) {
 	return 0;
 }
 
-int send_ackn(struct client *target, pack_con1 confirm) {
-	INVAL_CHECK(target == NULL || confirm > MAX_STATUS || confirm < 0);
+int send_ackn(struct client *target, struct packet *source, pack_con1 confirm) {
+	INVAL_CHECK(target == NULL || source == NULL || confirm > MAX_STATUS || confirm < 0);
 
-	struct packet_header header = {0, ACKNOWLEDGE, confirm, 0};
+	struct packet_header header = {source->header.head, ACKNOWLEDGE, confirm, 0};
 	if (write_dataless(target, header) < 0) {
 		DEBUG_PRINT("failed acknowledge write");
 		return -errno;
@@ -213,10 +228,10 @@ int send_wake(struct client *target) {
 	return 0;
 }
 
-int send_neg_ackn(struct client *target, pack_con1 deny) {
+int send_neg_ackn(struct client *target, struct packet *source, pack_con1 deny) {
 	INVAL_CHECK(target == NULL || deny > MAX_STATUS || deny < 0);
 
-	struct packet_header header = {0, NEG_ACKNOWLEDGE, deny, 0};
+	struct packet_header header = {source->header.head, NEG_ACKNOWLEDGE, deny, 0};
 	if (write_dataless(target, header) < 0) {
 		DEBUG_PRINT("failed negative acknowledge write");
 		return -errno;

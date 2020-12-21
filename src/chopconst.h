@@ -73,11 +73,13 @@ typedef uint8_t pack_head;
 typedef uint8_t pack_stat;
 typedef uint8_t pack_con1;
 typedef uint8_t pack_con2;
+typedef time_t pack_time;
 
 static const size_t pack_head_max = UMAXOF(pack_head);
 static const size_t pack_stat_max = UMAXOF(pack_stat);
 static const size_t pack_con1_max = UMAXOF(pack_con1);
 static const size_t pack_con2_max = UMAXOF(pack_con2);
+static const size_t pack_time_max = UMAXOF(pack_time);
 
 /*
  * Structures
@@ -95,6 +97,7 @@ struct packet_header {
 	pack_stat status;
 	pack_con1 control1;
 	pack_con2 control2;
+	pack_time timestamp;
 };
 
 struct packet {

@@ -94,7 +94,6 @@ int parse_header(struct client *cli, struct packet *pack) {
 		return subcall;
 	}
 
-	cli->send_depth++;
 	return subcall;
 }
 
@@ -144,7 +143,7 @@ int parse_text(struct client *cli, struct packet *pack) {
 	}
 
 	// confirm text
-	if (send_ackn(cli, START_TEXT) < 0) {
+	if (send_ackn(cli, pack, START_TEXT) < 0) {
 		DEBUG_PRINT("failed confirm packet");
 		return -errno;
 	}
@@ -202,7 +201,7 @@ int parse_enquiry(struct client *cli, struct packet *pack) {
 			DEBUG_PRINT("normal enquiry");
 
 			// just return an acknowledge
-			if (send_ackn(cli, ENQUIRY) < 0) {
+			if (send_ackn(cli, pack, ENQUIRY) < 0) {
 				DEBUG_PRINT("failed acknowledge packet");
 				return -errno;
 			}
@@ -212,7 +211,7 @@ int parse_enquiry(struct client *cli, struct packet *pack) {
 			DEBUG_PRINT("return enquiry");
 
 			// return an acknowledge
-			if (send_ackn(cli, ENQUIRY) < 0) {
+			if (send_ackn(cli, pack, ENQUIRY) < 0) {
 				DEBUG_PRINT("failed acknowledge packet");
 				return -errno;
 			}
@@ -233,7 +232,7 @@ int parse_enquiry(struct client *cli, struct packet *pack) {
 			}
 
 			// return acknowledge
-			if (send_ackn(cli, ENQUIRY) < 0) {
+			if (send_ackn(cli, pack, ENQUIRY) < 0) {
 				DEBUG_PRINT("failed acknowledge packet");
 				return -1;
 			}
@@ -243,7 +242,7 @@ int parse_enquiry(struct client *cli, struct packet *pack) {
 			DEBUG_PRINT("time request");
 
 			// return an acknowledge
-			if (send_ackn(cli, ENQUIRY) < 0) {
+			if (send_ackn(cli, pack, ENQUIRY) < 0) {
 				DEBUG_PRINT("failed acknowledge packet");
 				return -errno;
 			}
@@ -334,7 +333,7 @@ int parse_wakeup(struct client *cli, struct packet *pack) {
 		cli->inc_flag = NULL_BYTE;
 
 		// confirm client wake
-		if (send_ackn(cli, WAKEUP) < 0) {
+		if (send_ackn(cli, pack, WAKEUP) < 0) {
 			DEBUG_PRINT("failed confirm packet");
 			return -1;
 		}
@@ -342,7 +341,7 @@ int parse_wakeup(struct client *cli, struct packet *pack) {
 		DEBUG_PRINT("client %d now awake", cli->socket_fd);
 	} else {
 		// refuse client wake
-		if (send_neg_ackn(cli, WAKEUP) < 0) {
+		if (send_neg_ackn(cli, pack, WAKEUP) < 0) {
 			DEBUG_PRINT("failed deny packet");
 			return -1;
 		}
@@ -396,7 +395,7 @@ int parse_idle(struct client *cli, struct packet *pack) {
 		cli->inc_flag = IDLE;
 
 		// confirm client idle
-		if (send_ackn(cli, IDLE) < 0) {
+		if (send_ackn(cli, pack, IDLE) < 0) {
 			DEBUG_PRINT("failed confirm packet");
 			return -1;
 		}
@@ -404,7 +403,7 @@ int parse_idle(struct client *cli, struct packet *pack) {
 		DEBUG_PRINT("client %d now sleeping", cli->socket_fd);
 	} else {
 		// refuse client idle
-		if (send_neg_ackn(cli, IDLE) < 0) {
+		if (send_neg_ackn(cli, pack, IDLE) < 0) {
 			DEBUG_PRINT("failed deny packet");
 			return -1;
 		}
@@ -420,7 +419,7 @@ int parse_error(struct client *cli, struct packet *pack) {
 	INVAL_CHECK(cli == NULL || pack == NULL);
 
 	// confirm error
-	if (send_ackn(cli, SUBSTITUTE) < 0) {
+	if (send_ackn(cli, pack, SUBSTITUTE) < 0) {
 		DEBUG_PRINT("failed confirm packet");
 		return -1;
 	}
@@ -434,7 +433,7 @@ int parse_escape(struct client *cli, struct packet *pack) {
 	INVAL_CHECK(cli == NULL || pack == NULL);
 
 	// confirm client escape
-	if (send_ackn(cli, ESCAPE) < 0) {
+	if (send_ackn(cli, pack, ESCAPE) < 0) {
 		DEBUG_PRINT("failed confirm packet");
 		return -1;
 	}
@@ -446,4 +445,3 @@ int parse_escape(struct client *cli, struct packet *pack) {
 
 	return 0;
 }
-
