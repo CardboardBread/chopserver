@@ -169,6 +169,7 @@ int create_packet(struct packet **target) {
 	// reset fields
 	if (init_packet(init) < 0) {
 		DEBUG_PRINT("init");
+		free(init);
 		return -errno;
 	}
 
@@ -255,27 +256,12 @@ int create_server(struct server **target, int port, size_t max_conns, size_t que
 		return -errno;
 	}
 
-	// allocate server client array
-	struct client **mem = (struct client **) calloc(max_conns, sizeof(struct client *));
-	if (mem == NULL) {
-		DEBUG_PRINT("malloc, memory");
+	// initialize structure fields
+	if (init_server(init, port, max_conns, queue_len, window) < 0) {
+		DEBUG_PRINT("init");
 		free(init);
 		return -errno;
 	}
-
-	// set client array to empty
-	for (int i = 0; i < max_conns; i++) {
-		mem[i] = NULL;
-	}
-
-	// initialize structure fields
-	init->server_fd = -1;
-	init->server_port = port;
-	init->clients = mem;
-	init->max_connections = max_conns;
-	init->cur_connections = 0;
-	init->connect_queue = queue_len;
-	init->window = window;
 
 	// set given pointer to new struct
 	*target = init;
@@ -287,6 +273,27 @@ int init_server(struct server *target, int port, size_t max_conns, size_t queue_
 	if (target == NULL || max_conns < 1 || queue_len < 1 || window < 1) {
 		return -EINVAL;
 	}
+
+	// allocate client array
+	struct client **mem = (struct client **) calloc(max_conns, sizeof(struct client *));
+	if (mem == NULL) {
+		DEBUG_PRINT("malloc, memory");
+		return -errno;
+	}
+
+	// set client array to empty
+	for (int i = 0; i < max_conns; i++) {
+		mem[i] = NULL;
+	}
+
+	// initialize structure fields
+	target->server_fd = -1;
+	target->server_port = port;
+	target->clients = mem;
+	target->max_connections = max_conns;
+	target->cur_connections = 0;
+	target->connect_queue = queue_len;
+	target->window = window;
 
 	return 0;
 }
@@ -343,14 +350,30 @@ int create_client(struct client **target, size_t window) {
 	}
 
 	// initialize structure fields
-	init->socket_fd = -1;
-	init->server_fd = -1;
-	init->inc_flag = 0;
-	init->out_flag = 0;
-	init->window = window;
+	if (init_client(init, window) < 0) {
+		DEBUG_PRINT("init");
+		free(init);
+		return -errno;
+	}
 
 	// set given pointer to new struct
 	*target = init;
+	return 0;
+}
+
+int init_client(struct client *target, size_t window) {
+	// check valid argument
+	if (target == NULL || window < 1) {
+		return -EINVAL;
+	}
+
+	// initialize structure fields
+	target->socket_fd = -1;
+	target->server_fd = -1;
+	target->inc_flag = 0;
+	target->out_flag = 0;
+	target->window = window;
+
 	return 0;
 }
 
@@ -383,12 +406,3 @@ int destroy_client(struct client **target) {
 	*target = NULL;
 	return 0;
 }
-
-
-
-
-
-
-
-
-

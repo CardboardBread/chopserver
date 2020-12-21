@@ -71,11 +71,13 @@ typedef uint8_t pack_head;
 typedef uint8_t pack_stat;
 typedef uint8_t pack_con1;
 typedef uint8_t pack_con2;
+typedef time_t pack_time;
 
 static const size_t pack_head_max = UMAXOF(pack_head);
 static const size_t pack_stat_max = UMAXOF(pack_stat);
 static const size_t pack_con1_max = UMAXOF(pack_con1);
 static const size_t pack_con2_max = UMAXOF(pack_con2);
+static const size_t pack_time_max = UMAXOF(pack_time);
 
 /*
  * Structures
@@ -93,6 +95,7 @@ struct packet_header {
 	pack_stat status;
 	pack_con1 control1;
 	pack_con2 control2;
+	pack_time timestamp;
 };
 
 struct packet {
@@ -106,10 +109,10 @@ struct server {
 	int server_fd;
 	int server_port;
 	struct client **clients; // array of client pointers
-	size_t max_connections;
-	size_t cur_connections;
-	size_t connect_queue;
-	size_t window;
+	size_t max_connections; // max number of clients allowed connected at once
+	size_t cur_connections; // current clients connected
+	size_t connect_queue; // how many clients can wait to connect at once
+	size_t window; // how much data the server can pass to a client at once
 };
 
 struct client {
@@ -190,9 +193,13 @@ int destroy_packet(struct packet **target);
 
 int create_server(struct server **target, int port, size_t max_conns, size_t queue_len, size_t window);
 
+int init_server(struct server *target, int port, size_t max_conns, size_t queue_len, size_t window);
+
 int destroy_server(struct server **target);
 
 int create_client(struct client **target, size_t window);
+
+int init_client(struct client *target, size_t window);
 
 int destroy_client(struct client **target);
 

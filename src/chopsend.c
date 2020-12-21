@@ -8,8 +8,8 @@
 #include "chopsend.h"
 
 /*
-* Generic sending functions
-*/
+ * Generic sending functions
+ */
 
 int write_dataless(struct client *cli, struct packet_header header) {
 	// precondition for invalid arguments
@@ -90,6 +90,12 @@ int write_datapack(struct client *cli, struct packet_header header, const char *
  * Status-specific sending functions
  */
 
+ /*
+  * Will allocate all required packets and fill them all before sending them, in
+  * order to keep them sent as close to each other as possible, since sending
+  * packets as soon as we make them may invite some delay between each packet
+  * required to sent the entire given text.
+  */
 int send_text(struct client *target, const char *buf, size_t buf_len) {
 	INVAL_CHECK(target == NULL || buf == NULL || buf_len < 1);
 	// check if we can fit the whole text in one packet header, if not split it up

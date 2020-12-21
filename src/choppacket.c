@@ -60,6 +60,7 @@ int parse_header(struct client *cli, struct packet *pack) {
 	// mark client incoming flag with status
 	cli->inc_flag = pack->header.status;
 
+	// get packet parser
 	int subcall = 0;
 	int sub_index = pack->header.status;
 	status_function parser = parsers[sub_index];
@@ -207,6 +208,12 @@ int parse_enquiry(struct client *cli, struct packet *pack) {
 		case ENQUIRY_RETURN:
 			DEBUG_PRINT("return enquiry");
 
+			// return an acknowledge
+			if (send_ackn(cli, ENQUIRY) < 0) {
+				DEBUG_PRINT("failed acknowledge packet");
+				return -errno;
+			}
+
 			// return a enquiry signal 0
 			if (send_enqu(cli, ENQUIRY_NORMAL) < 0) {
 				DEBUG_PRINT("failed enquiry return");
@@ -231,6 +238,12 @@ int parse_enquiry(struct client *cli, struct packet *pack) {
 
 		case ENQUIRY_RTIME:
 			DEBUG_PRINT("time request");
+
+			// return an acknowledge
+			if (send_ackn(cli, ENQUIRY) < 0) {
+				DEBUG_PRINT("failed acknowledge packet");
+				return -errno;
+			}
 
 			// return time enquiry packet
 			if (send_enqu(cli, ENQUIRY_TIME) < 0) {
@@ -411,4 +424,3 @@ int parse_escape(struct client *cli, struct packet *pack) {
 
 	return 0;
 }
-
