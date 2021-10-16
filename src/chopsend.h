@@ -1,5 +1,5 @@
-#ifndef CHOPSERVER_CHOPSEND_H
-#define CHOPSERVER_CHOPSEND_H
+#ifndef CHOPSEND_H__
+#define CHOPSEND_H__
 
 #include "chopconst.h"
 
@@ -17,4 +17,4 @@ int send_idle(struct client *target);
 
 int send_exit(struct client *target);
 
-#endif //CHOPSERVER_CHOPSEND_H
+#endif // CHOPSEND_H__

@@ -39,6 +39,9 @@ int send_packet(struct client *cli, struct packet *out) {
 		DEBUG_PRINT("registered packet %d under exchange %u", packet_style(out), key);
 	}
 
+	// mark time in packet
+	out->header.timestamp = time(NULL);
+
 	return write_packet(cli, out);
 }
 

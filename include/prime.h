@@ -1,9 +1,5 @@
-//
-// Created by mike_ on 11/2/2020.
-//
-
-#ifndef CHOPSERVER_PRIME_H
-#define CHOPSERVER_PRIME_H
+#ifndef CHOPSERVER_PRIME_H__
+#define CHOPSERVER_PRIME_H__
 
 #include <stdbool.h>
 
@@ -23,4 +19,4 @@ bool is_prime(LARGE value);
  */
 LARGE next_prime(LARGE value, LARGE type_max);
 
-#endif //CHOPSERVER_PRIME_H
+#endif // CHOPSERVER_PRIME_H__

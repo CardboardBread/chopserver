@@ -1,5 +1,5 @@
-#ifndef __CHOPDEBUG_H__
-#define __CHOPDEBUG_H__
+#ifndef CHOPDEBUG_H__
+#define CHOPDEBUG_H__
 
 #include <unistd.h>
 #include <pthread.h>
@@ -14,7 +14,7 @@ static const int debug_fd = STDERR_FILENO;
 static const int msg_fd = STDOUT_FILENO;
 static const char dbg_head[] = "[DEBUG][%lu][%s]: ";
 static const char dbg_err[] = "[ERROR %d][%lu][%s]: {%s}, ";
-static const char dbg_pack[] = "PACKET{%hhu:%hhu:%hhu:%hhu}";
+static const char dbg_pack[] = "PACKET{%hhu:%hhu:%hhu:%hhu;%ld}";
 static const char msg_tail[] = "\n";
 
 static const char recv_text_start[] = "\"";
@@ -46,7 +46,7 @@ static const char esc_confirm[] = "Connection closed";
  */
 
 extern int header_type;
-pthread_mutex_t print_lock;
+extern pthread_mutex_t print_lock;
 
 #define INIT_SERVER_PRINT {header_type = 0; pthread_mutex_init(&print_lock, NULL);}
 #define INIT_CLIENT_PRINT {header_type = 1; pthread_mutex_init(&print_lock, NULL);}
@@ -55,9 +55,9 @@ pthread_mutex_t print_lock;
  * Lock outside of print calls, in case of long-winded prints
  * Allows calling print multiple times without interruption
  */
-#define LOCK_PRINT pthread_mutex_lock(&print_lock);
-#define UNLOCK_PRINT pthread_mutex_unlock(&print_lock);
-#define PRINTLOCK_BLOCK(args) pthread_mutex_lock(&print_lock);{args}pthread_mutex_unlock(&print_lock);
+//#define LOCK_PRINT pthread_mutex_lock(&print_lock);
+//#define UNLOCK_PRINT pthread_mutex_unlock(&print_lock);
+//#define PRINTLOCK_BLOCK(args) pthread_mutex_lock(&print_lock);{args}pthread_mutex_unlock(&print_lock);
 
 /*
  * Printing Functions
@@ -122,4 +122,4 @@ const char *msg_header();
 #define INVAL_CHECK(args) if (args) {return -EINVAL;}
 #endif
 
-#endif
+#endif // CHOPDEBUG_H__

@@ -191,6 +191,7 @@ int init_packet(struct packet *target) {
 	target->header.status = 0;
 	target->header.control1 = 0;
 	target->header.control2 = 0;
+	target->header.timestamp = 0;
 	target->data = NULL;
 	target->datalen = 0;
 

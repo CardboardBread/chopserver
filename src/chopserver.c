@@ -7,7 +7,6 @@
 
 #include "chopconn.h"
 #include "chopdebug.h"
-#include "choppacket.h"
 #include "chopsocket.h"
 #include "chopsend.h"
 

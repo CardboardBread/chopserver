@@ -1,5 +1,5 @@
-#ifndef _CHOPSOCKET_H_
-#define _CHOPSOCKET_H_
+#ifndef CHOPSOCKET_H__
+#define CHOPSOCKET_H__
 
 #include <netinet/in.h>    /* Internet domain header, for struct sockaddr_in */
 
@@ -45,4 +45,4 @@ int accept_client(struct client *target, int listen_fd);
  */
 int client_connect(struct client *target, const char *hostname, int port);
 
-#endif
+#endif // CHOPSOCKET_H__

@@ -1,5 +1,5 @@
-#ifndef CHOPSERVER_SEGMENTLIST_H
-#define CHOPSERVER_SEGMENTLIST_H
+#ifndef CHOPSERVER_SEGMENTLIST_H__
+#define CHOPSERVER_SEGMENTLIST_H__
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -28,4 +28,4 @@ bool remove(struct segment_list_str *list, size_t index, list_word *dest);
 
 bool get(struct segment_list_str *list, size_t index, list_word *dest);
 
-#endif //CHOPSERVER_SEGMENTLIST_H
+#endif // CHOPSERVER_SEGMENTLIST_H__

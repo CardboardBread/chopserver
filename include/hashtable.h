@@ -1,5 +1,5 @@
-#ifndef CHOPSERVER_HASHTABLE_H
-#define CHOPSERVER_HASHTABLE_H
+#ifndef CHOPSERVER_HASHTABLE_H__
+#define CHOPSERVER_HASHTABLE_H__
 
 #include <stddef.h>
 #include <stdbool.h>
@@ -51,4 +51,4 @@ bool table_put(hash_table_t *target, hash_key key, hash_value value);
 
 bool table_remove(hash_table_t *target, hash_key key, hash_value *dest);
 
-#endif //CHOPSERVER_HASHTABLE_H
+#endif // CHOPSERVER_HASHTABLE_H__

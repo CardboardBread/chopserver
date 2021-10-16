@@ -8,7 +8,6 @@
 #include "chopconn.h"
 #include "chopdata.h"
 #include "chopdebug.h"
-#include "choppacket.h"
 #include "chopsend.h"
 
 #define BUF_SIZE 255

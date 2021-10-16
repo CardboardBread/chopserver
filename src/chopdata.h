@@ -1,5 +1,5 @@
-#ifndef __CHOPDATA_H__
-#define __CHOPDATA_H__
+#ifndef CHOPDATA_H__
+#define CHOPDATA_H__
 
 #include "chopconst.h"
 
@@ -115,4 +115,4 @@ int force_write(int output_fd, const char *buffer, size_t outgoing);
  */
 int packet_style(struct packet *pack);
 
-#endif
+#endif // CHOPDATA_H__

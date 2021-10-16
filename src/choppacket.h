@@ -1,5 +1,5 @@
-#ifndef _CHOPPACKET_H_
-#define _CHOPPACKET_H_
+#ifndef CHOPPACKET_H__
+#define CHOPPACKET_H__
 
 #include "chopconst.h"
 
@@ -29,4 +29,4 @@ int parse_error(struct client *cli, struct packet *pack);
 
 int parse_escape(struct client *cli, struct packet *pack);
 
-#endif
+#endif // CHOPPACKET_H__

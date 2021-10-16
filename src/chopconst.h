@@ -1,5 +1,5 @@
-#ifndef __CHOPCONST_H__
-#define __CHOPCONST_H__
+#ifndef CHOPCONST_H__
+#define CHOPCONST_H__
 
 #include <netinet/in.h>
 
@@ -207,4 +207,4 @@ int init_client(struct client *target, size_t window);
 
 int destroy_client(struct client **target);
 
-#endif
+#endif // CHOPCONST_H__

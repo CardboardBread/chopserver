@@ -1,5 +1,5 @@
-#ifndef CHOPSERVER_LOCKING_H
-#define CHOPSERVER_LOCKING_H
+#ifndef CHOPSERVER_LOCKING_H__
+#define CHOPSERVER_LOCKING_H__
 
 #include <pthread.h>
 
@@ -15,4 +15,4 @@
 
 #define SPIN_BLOCK(lock, args) pthread_spin_lock(lock);{args}pthread_spin_unlock(lock);
 
-#endif //CHOPSERVER_LOCKING_H
+#endif // CHOPSERVER_LOCKING_H__

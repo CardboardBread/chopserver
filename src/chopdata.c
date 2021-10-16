@@ -116,7 +116,7 @@ int read_header(struct client *cli, struct packet *pack) {
 
     // print incoming header // TODO: centralize header printing
     DEBUG_PRINT(dbg_pack, pack->header.head, pack->header.status,
-								pack->header.control1, pack->header.control2);
+				pack->header.control1, pack->header.control2, pack->header.timestamp);
 
     // TODO: this is very platform dependent
     DEBUG_PRINT("read header, style %d, width %zd", packet_style(pack), bytes_read);
@@ -177,7 +177,7 @@ int write_packet(struct client *cli, struct packet *pack) {
 
     // print outgoing header // TODO: centralize header printing
 	DEBUG_PRINT(dbg_pack, pack->header.head, pack->header.status,
-				pack->header.control1, pack->header.control2);
+				pack->header.control1, pack->header.control2, pack->header.timestamp);
 
     // TODO: this is very platform dependent
     DEBUG_PRINT("packet style %d, %zd bytes header, %zu bytes body", packet_style(pack), head_written, total);

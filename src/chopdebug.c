@@ -1,12 +1,12 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <stdarg.h>
 #include <errno.h>
 #include <string.h>
 #include <pthread.h>
-#include <sys/file.h>
 
 #include "chopdebug.h"
+
+pthread_mutex_t print_lock;
 
 /*
  * Client/Server Print Headers

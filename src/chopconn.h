@@ -1,5 +1,5 @@
-#ifndef __CHOPCONN_H__
-#define __CHOPCONN_H__
+#ifndef CHOPCONN_H__
+#define CHOPCONN_H__
 
 #include "chopconst.h"
 
@@ -27,4 +27,4 @@ int is_address(const char *str);
 
 int is_name(const char *str);
 
-#endif
+#endif // CHOPCONN_H__
