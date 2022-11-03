@@ -109,17 +109,14 @@ const char *msg_header();
 // Don't do anything in non-debug builds
 #ifndef NDEBUG
 #define DEBUG_PRINT(fmt, args...) debug_print(__FUNCTION__, fmt, ## args)
+#define INVAL_CHECK(args) if (args) {DEBUG_PRINT("invalid arguments"); return -EINVAL;}
+#define INVAL_CHECK_R(args, ret) if (args) {DEBUG_PRINT("invalid arguments"); return ret;}
+#define INVAL_CHECK_NR(args, n_ret) if (args) {DEBUG_PRINT("invalid arguments"); return -n_ret;}
 #else
 #define DEBUG_PRINT(fmt, args...) no_operation(fmt, ## args)
+#define INVAL_CHECK(args) if (args) {return -EINVAL;}
 #endif
 
 #define MESSAGE_PRINT(id, fmt, args...) message_print(id, fmt, ## args)
-
-// Don't print in non-debug builds
-#ifndef NDEBUG
-#define INVAL_CHECK(args) if (args) {DEBUG_PRINT("invalid arguments"); return -EINVAL;}
-#else
-#define INVAL_CHECK(args) if (args) {return -EINVAL;}
-#endif
 
 #endif // CHOPDEBUG_H__

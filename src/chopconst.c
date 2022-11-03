@@ -105,10 +105,8 @@ int init_buffer(struct buffer *target, size_t size) {
 	return 0;
 }
 
-int realloc_buffer(struct buffer *target, size_t size) {
+int realloc_buffer(struct buffer *target, size_t size) { // TODO: retain inbuf value for new buffer
 	INVAL_CHECK(target == NULL || size < 1);
-
-	// TODO: check for reallocation in-place
 
 	// no reallocation if the buffer doesn't change
 	if (size == target->bufsize) {
@@ -116,6 +114,8 @@ int realloc_buffer(struct buffer *target, size_t size) {
 	}
 
 	char *old_mem = target->buf;
+	size_t old_inbuf = target->inbuf;
+	size_t old_bufsize = target->bufsize;
 	struct buffer *old_next = target->next;
 
 	// reinitialize buffer with new memory

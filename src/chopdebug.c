@@ -43,7 +43,7 @@ status_function printers[MAX_STATUS] = {
 		NULL,					// 19
 		NULL,					// 20
 		print_neg_acknowledge,	// 21
-		print_idle,				// 22
+		print_idle,			// 22
 		NULL,					// 23
 		NULL,					// 24
 		NULL,					// 25

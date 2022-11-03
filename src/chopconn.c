@@ -30,7 +30,6 @@ int accept_new_client(struct server *receiver) {
 		destroy_client(&new_client);
 		return client_fd;
 	}
-	DEBUG_PRINT("new client on fd %d", client_fd);
 
 	// find space to put potential new client in
 	size_t destination = -1;
@@ -53,7 +52,7 @@ int accept_new_client(struct server *receiver) {
 
 	// track new client
 	receiver->cur_connections++;
-	DEBUG_PRINT("new client, index %zu", destination);
+	DEBUG_PRINT("new client, fd %d, index %zu", client_fd, destination);
 	return client_fd;
 }
 
@@ -148,7 +147,7 @@ int process_request(struct client *cli) {
 			// TODO: flush the fd and close the connection (this shouldn't need to happen)
 			break;
 		default:
-			DEBUG_PRINT("client %lu flag", cli->inc_flag);
+			DEBUG_PRINT("downstream %d, %lu flag", cli->socket_fd, cli->inc_flag);
 			status = read_header(cli, pack);
 			if (status < 0) {
 				cli->inc_flag = CANCEL;
@@ -189,10 +188,7 @@ int is_client_status(struct client *cli, pack_stat status) {
 
 int is_address(const char *str) {
 	// check valid argument
-	if (str == NULL) {
-		DEBUG_PRINT("invalid arguments");
-		return 0;
-	}
+	INVAL_CHECK(str == NULL);
 
 	// copy string to local buffer for tokenizing
 	size_t cap = strlen(str);

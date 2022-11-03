@@ -79,7 +79,7 @@ int parse_header(struct client *cli, struct packet *pack) {
 
 	// call parsing function
 	DEBUG_PRINT("received %s header", status_str_arr[sub_index].name);
-	subcall = parsers[sub_index](cli, pack);
+	subcall = parser(cli, pack);
 	if (subcall < 0) {
 		DEBUG_PRINT("failed parse");
 		return subcall;

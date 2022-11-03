@@ -18,7 +18,7 @@ int send_packet(struct client *cli, struct packet *out) {
 	INVAL_CHECK(cli == NULL || out == NULL);
 
 	// do not register response packets
-	if (out->header.status != ACKNOWLEDGE || out->header.status != NEG_ACKNOWLEDGE) {
+	if (out->header.status != ACKNOWLEDGE && out->header.status != NEG_ACKNOWLEDGE) {
 
 		// set head with current send depth
 		out->header.head = cli->send_depth;
@@ -127,7 +127,9 @@ int send_text(struct client *target, const char *buf, size_t buf_len) {
 	// check if we can fit the whole text in one packet header, if not split it up
 	// call write_datapack with the proper arguments
 
-	// calculate how muany packets are needed to send all the data
+	DEBUG_PRINT("sending TEXT");
+
+	// calculate how many packets are needed to send all the data
 	size_t packet_max = pack_con1_max;
 	size_t packet_count = WRAP_DIV(buf_len, packet_max);
 
@@ -188,6 +190,8 @@ int send_text(struct client *target, const char *buf, size_t buf_len) {
 int send_enqu(struct client *target, pack_con1 type) {
 	INVAL_CHECK(target == NULL || type > MAX_ENQUIRY);
 
+	DEBUG_PRINT("sending ENQUIRY");
+
 	struct packet_header header = {0, ENQUIRY, type, 0};
 
 	int ret;
@@ -210,6 +214,8 @@ int send_enqu(struct client *target, pack_con1 type) {
 int send_ackn(struct client *target, struct packet *source, pack_con1 confirm) {
 	INVAL_CHECK(target == NULL || source == NULL || confirm > MAX_STATUS || confirm < 0);
 
+	DEBUG_PRINT("sending ACKNOWLEDGE");
+
 	struct packet_header header = {source->header.head, ACKNOWLEDGE, confirm, 0};
 	if (write_dataless(target, header) < 0) {
 		DEBUG_PRINT("failed acknowledge write");
@@ -221,6 +227,8 @@ int send_ackn(struct client *target, struct packet *source, pack_con1 confirm) {
 
 int send_wake(struct client *target) {
 	INVAL_CHECK(target == NULL);
+
+	DEBUG_PRINT("sending WAKEUP");
 
 	struct packet_header header = {0, WAKEUP, 0,0};
 	if (write_dataless(target, header) < 0) {
@@ -234,6 +242,8 @@ int send_wake(struct client *target) {
 int send_neg_ackn(struct client *target, struct packet *source, pack_con1 deny) {
 	INVAL_CHECK(target == NULL || deny > MAX_STATUS || deny < 0);
 
+	DEBUG_PRINT("sending NEG_ACKNOWLEDGE");
+
 	struct packet_header header = {source->header.head, NEG_ACKNOWLEDGE, deny, 0};
 	if (write_dataless(target, header) < 0) {
 		DEBUG_PRINT("failed negative acknowledge write");
@@ -246,6 +256,8 @@ int send_neg_ackn(struct client *target, struct packet *source, pack_con1 deny) 
 int send_idle(struct client *target) {
 	INVAL_CHECK(target == NULL);
 
+	DEBUG_PRINT("sending IDLE");
+
 	struct packet_header header = {0, IDLE, 0,0};
 	if (write_dataless(target, header) < 0) {
 		DEBUG_PRINT("failed idle write");
@@ -257,6 +269,8 @@ int send_idle(struct client *target) {
 
 int send_exit(struct client *target) {
 	INVAL_CHECK(target == NULL);
+
+	DEBUG_PRINT("sending EXIT");
 
 	struct packet_header header = {0, ESCAPE, 0,0};
 	if (write_dataless(target, header) < 0) {

@@ -73,7 +73,7 @@ int main(void) {
 		DEBUG_PRINT("failed server socket init");
 		exit(-server_start);
 	}
-	DEBUG_PRINT("server listening on all interfaces");
+	DEBUG_PRINT("server listening on all interfaces, fd %d", host->server_fd);
 
 	// setup fd set for selecting
 	int max_fd = host->server_fd;
@@ -86,7 +86,8 @@ int main(void) {
 
 	int run = 1;
 	while (run) {
-		printf("\n");
+		fprintf(stdout, "\n");
+		fprintf(stderr, "\n");
 
 		// setup timeout for time until next minute
 		timeout.tv_sec = next_minute(time(NULL));
@@ -109,7 +110,9 @@ int main(void) {
 				DEBUG_PRINT("failed select");
 				exit(1);
 			}
-		} else if (nready == 0) {
+		}
+
+		if (nready == 0) {
 			DEBUG_PRINT("timeout reached, resetting");
 
 			// send time to all clients
@@ -122,12 +125,18 @@ int main(void) {
 			}
 		}
 
+		if (nready > 0) {
+			DEBUG_PRINT("%d connection(s) ready", nready);
+		}
+
 		// check all clients if they can read
+		DEBUG_PRINT("client socket check");
 		for (int index = 0; index < host->max_connections; index++) {
 			struct client *client = host->clients[index];
 
 			// relies on short circuiting
 			if (client != NULL && FD_ISSET(client->socket_fd, &listen_fds)) {
+				DEBUG_PRINT("incoming packet from downstream %d", client->socket_fd);
 				if (process_request(client) < 0) {
 					DEBUG_PRINT("request error");
 					//exit(1); // TODO: remove once failing a packet isn't really bad
@@ -143,7 +152,9 @@ int main(void) {
 		}
 
 		// accept new client
+		DEBUG_PRINT("server socket check");
 		if (FD_ISSET(host->server_fd, &listen_fds)) {
+			DEBUG_PRINT("incoming connection");
 			int client_fd = accept_new_client(host);
 			if (client_fd < 0) {
 				DEBUG_PRINT("failed accept");

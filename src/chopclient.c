@@ -94,15 +94,22 @@ int main(void) {
 		if (nready < 0) {
 			DEBUG_PRINT("select");
 			exit(1);
-		} if (nready == 0) {
+		}
+
+		if (nready == 0) {
 			DEBUG_PRINT("timeout reached, resetting");
 			if (send_enqu(server_connection, ENQUIRY_TIME) < 0) {
 				DEBUG_PRINT("failed time update to server");
 			}
 		}
 
+		if (nready > 0) {
+			DEBUG_PRINT("%d connections ready", nready);
+		}
+
 		// reading from server
 		if (FD_ISSET(server_connection->socket_fd, &listen_fds)) {
+			DEBUG_PRINT("incoming packet from upstream");
 			if (process_request(server_connection) < 0) {
 				exit(1); // TODO: remove once failing a packet isn't really bad
 			}
